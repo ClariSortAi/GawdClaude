@@ -18,6 +18,17 @@ import { join, basename } from "path";
 import { homedir } from "os";
 import { execSync } from "child_process";
 
+// === CONFIG ===
+const __dirname = import.meta.dirname;
+const CONFIG_PATH = join(__dirname, "config.json");
+
+let userConfig = {};
+try {
+  userConfig = JSON.parse(readFileSync(CONFIG_PATH, "utf-8"));
+} catch {
+  // No config.json — fall back to defaults. Run `node setup.mjs` to create one.
+}
+
 // === PATHS ===
 const HOME = homedir();
 const CLAUDE_DIR = join(HOME, ".claude");
@@ -27,13 +38,17 @@ const PLUGINS_CACHE = join(CLAUDE_DIR, "plugins", "cache");
 const SESSION_STATE_DIR = join(CLAUDE_DIR, "hooks", "session-state");
 const WATCHDOG_STATUS = join(CLAUDE_DIR, "hooks", "watchdog-status.json");
 const OBSIDIAN_CONFIG = join(CLAUDE_DIR, "obsidian-hook-config.json");
-const DEV_DIR = "C:\\Dev";
+const DEV_DIR = userConfig.devDir || (process.platform === "win32" ? "C:\\Dev" : join(HOME, "dev"));
 
-// Load obsidian config for vault path
+// Load obsidian config — prefer config.json, fall back to Claude's obsidian-hook-config
 let obsidianConfig = null;
-try {
-  obsidianConfig = JSON.parse(readFileSync(OBSIDIAN_CONFIG, "utf-8"));
-} catch { /* no obsidian config */ }
+if (userConfig.obsidian?.vaultRoot) {
+  obsidianConfig = userConfig.obsidian;
+} else {
+  try {
+    obsidianConfig = JSON.parse(readFileSync(OBSIDIAN_CONFIG, "utf-8"));
+  } catch { /* no obsidian config */ }
+}
 
 const VAULT_ROOT = obsidianConfig?.vaultRoot || null;
 const VAULT_PROJECT_DIR = VAULT_ROOT ? join(VAULT_ROOT, obsidianConfig?.subfolder || "Projects", "gawdclaude") : null;
@@ -393,6 +408,8 @@ function checkObsidianHook() {
 }
 
 // === MAIN AUDIT ===
+export { userConfig };
+
 export async function runAudit() {
   const timestamp = new Date().toISOString();
   const results = {

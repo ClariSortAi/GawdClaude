@@ -6,75 +6,77 @@
 <title>God Claude — Dashboard</title>
 <style>
   :root {
-    --bg: #0d1117;
-    --surface: #161b22;
-    --border: #30363d;
-    --text: #c9d1d9;
-    --text-dim: #8b949e;
-    --green: #3fb950;
-    --yellow: #d29922;
-    --red: #f85149;
-    --blue: #58a6ff;
-    --purple: #bc8cff;
-    --accent: #58a6ff;
+    --bg: #f8f9fa;
+    --surface: #ffffff;
+    --border: #e1e4e8;
+    --text: #24292f;
+    --text-dim: #656d76;
+    --green: #1a7f37;
+    --green-bg: #dafbe1;
+    --yellow: #9a6700;
+    --yellow-bg: #fff8c5;
+    --red: #cf222e;
+    --red-bg: #ffebe9;
+    --blue: #0969da;
+    --blue-bg: #ddf4ff;
+    --purple: #8250df;
+    --accent: #0969da;
+    --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
     background: var(--bg);
     color: var(--text);
-    font-family: 'Cascadia Code', 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
     font-size: 14px;
     line-height: 1.5;
-    padding: 24px;
+    padding: 24px 32px;
+    max-width: 1200px;
+    margin: 0 auto;
   }
-  a { color: var(--accent); text-decoration: none; }
-  a:hover { text-decoration: underline; }
+  code, .mono { font-family: 'Cascadia Code', 'JetBrains Mono', 'Fira Code', 'Consolas', monospace; font-size: 12px; }
 
   /* Header */
   .header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 24px;
+    margin-bottom: 28px;
     padding-bottom: 16px;
-    border-bottom: 1px solid var(--border);
+    border-bottom: 2px solid var(--border);
   }
-  .header h1 {
-    font-size: 24px;
-    font-weight: 600;
-    color: var(--text);
-    letter-spacing: -0.5px;
-  }
+  .header h1 { font-size: 22px; font-weight: 700; }
   .header h1 span { color: var(--purple); }
   .header-meta { text-align: right; }
-  .header-meta .timestamp { color: var(--text-dim); font-size: 12px; }
+  .header-meta .timestamp { color: var(--text-dim); font-size: 12px; margin-top: 4px; }
 
   /* Health Badge */
   .badge {
     display: inline-block;
-    padding: 4px 12px;
-    border-radius: 12px;
+    padding: 4px 14px;
+    border-radius: 20px;
     font-size: 12px;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.5px;
   }
-  .badge-healthy { background: rgba(63, 185, 80, 0.15); color: var(--green); border: 1px solid rgba(63, 185, 80, 0.3); }
-  .badge-warning { background: rgba(210, 153, 34, 0.15); color: var(--yellow); border: 1px solid rgba(210, 153, 34, 0.3); }
-  .badge-critical { background: rgba(248, 81, 73, 0.15); color: var(--red); border: 1px solid rgba(248, 81, 73, 0.3); }
+  .badge-healthy { background: var(--green-bg); color: var(--green); }
+  .badge-warning { background: var(--yellow-bg); color: var(--yellow); }
+  .badge-critical { background: var(--red-bg); color: var(--red); }
 
   /* Status Cards */
   .cards {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
     gap: 12px;
     margin-bottom: 24px;
   }
   .card {
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 8px;
+    border-radius: 10px;
     padding: 16px;
+    box-shadow: var(--shadow);
   }
   .card-label { color: var(--text-dim); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
   .card-value { font-size: 28px; font-weight: 700; }
@@ -83,45 +85,102 @@
   .card-value.yellow { color: var(--yellow); }
   .card-value.red { color: var(--red); }
 
+  /* Charts Row */
+  .charts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .chart-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    box-shadow: var(--shadow);
+  }
+  .chart-title { font-size: 13px; font-weight: 600; margin-bottom: 16px; color: var(--text); }
+  .chart-canvas { width: 100%; }
+
+  /* Bar chart */
+  .bar-chart { display: flex; align-items: flex-end; gap: 6px; height: 120px; padding-top: 8px; }
+  .bar-col { display: flex; flex-direction: column; align-items: center; flex: 1; height: 100%; justify-content: flex-end; }
+  .bar {
+    width: 100%;
+    max-width: 40px;
+    border-radius: 4px 4px 0 0;
+    transition: height 0.4s ease;
+    min-height: 2px;
+  }
+  .bar-label { font-size: 10px; color: var(--text-dim); margin-top: 6px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 60px; }
+  .bar-value { font-size: 11px; font-weight: 600; margin-bottom: 4px; }
+
+  /* Donut chart */
+  .donut-container { display: flex; align-items: center; gap: 24px; }
+  .donut-svg { width: 110px; height: 110px; }
+  .donut-legend { display: flex; flex-direction: column; gap: 6px; }
+  .legend-item { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
   /* Action Bar */
   .actions {
     display: flex;
     gap: 8px;
     margin-bottom: 24px;
+    flex-wrap: wrap;
   }
   .btn {
     background: var(--surface);
     border: 1px solid var(--border);
     color: var(--text);
     padding: 8px 16px;
-    border-radius: 6px;
+    border-radius: 8px;
     cursor: pointer;
     font-family: inherit;
     font-size: 13px;
+    font-weight: 500;
     transition: all 0.15s;
+    box-shadow: var(--shadow);
+    position: relative;
   }
   .btn:hover { border-color: var(--accent); color: var(--accent); }
-  .btn:active { transform: scale(0.98); }
-  .btn.primary { background: rgba(88, 166, 255, 0.1); border-color: var(--accent); color: var(--accent); }
-  .btn.primary:hover { background: rgba(88, 166, 255, 0.2); }
+  .btn:active { transform: scale(0.98); box-shadow: none; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.primary:hover { background: #0860ca; }
   .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-  .btn .spinner { display: none; }
-  .btn.loading .spinner { display: inline; }
-  .btn.loading .label { display: none; }
+
+  /* Toast */
+  .toast-container { position: fixed; top: 16px; right: 16px; z-index: 1000; display: flex; flex-direction: column; gap: 8px; }
+  .toast {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 16px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    animation: slideIn 0.25s ease;
+    max-width: 360px;
+  }
+  .toast.success { border-left: 3px solid var(--green); }
+  .toast.error { border-left: 3px solid var(--red); }
+  .toast.info { border-left: 3px solid var(--blue); }
+  @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 
   /* Sections */
   .section { margin-bottom: 24px; }
   .section-title {
-    font-size: 16px;
+    font-size: 15px;
     font-weight: 600;
     margin-bottom: 12px;
-    color: var(--text);
     display: flex;
     align-items: center;
     gap: 8px;
   }
   .section-title .count {
-    background: var(--surface);
+    background: var(--bg);
     border: 1px solid var(--border);
     border-radius: 10px;
     padding: 1px 8px;
@@ -135,8 +194,9 @@
     border-collapse: collapse;
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 8px;
+    border-radius: 10px;
     overflow: hidden;
+    box-shadow: var(--shadow);
   }
   .issues-table th {
     text-align: left;
@@ -145,80 +205,70 @@
     text-transform: uppercase;
     letter-spacing: 0.5px;
     color: var(--text-dim);
-    background: rgba(0,0,0,0.2);
+    background: var(--bg);
     border-bottom: 1px solid var(--border);
   }
-  .issues-table td {
-    padding: 10px 14px;
-    border-bottom: 1px solid var(--border);
-    font-size: 13px;
-  }
+  .issues-table td { padding: 10px 14px; border-bottom: 1px solid var(--border); font-size: 13px; }
   .issues-table tr:last-child td { border-bottom: none; }
-  .sev-dot {
+  .issues-table tr:hover { background: var(--bg); }
+  .sev-badge {
     display: inline-block;
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    margin-right: 6px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
   }
-  .sev-critical .sev-dot { background: var(--red); }
-  .sev-warning .sev-dot { background: var(--yellow); }
-  .sev-info .sev-dot { background: var(--blue); }
+  .sev-critical .sev-badge { background: var(--red-bg); color: var(--red); }
+  .sev-warning .sev-badge { background: var(--yellow-bg); color: var(--yellow); }
+  .sev-info .sev-badge { background: var(--blue-bg); color: var(--blue); }
 
   /* Project Grid */
   .project-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
     gap: 8px;
   }
   .project-card {
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 6px;
+    border-radius: 8px;
     padding: 12px 14px;
-    cursor: pointer;
+    box-shadow: var(--shadow);
     transition: border-color 0.15s;
   }
   .project-card:hover { border-color: var(--accent); }
   .project-name { font-weight: 600; font-size: 13px; margin-bottom: 6px; }
-  .project-icons { display: flex; gap: 8px; }
+  .project-icons { display: flex; gap: 6px; }
   .project-icon {
-    font-size: 11px;
+    font-size: 10px;
+    font-weight: 600;
     padding: 2px 6px;
     border-radius: 4px;
     border: 1px solid var(--border);
     color: var(--text-dim);
+    font-family: inherit;
   }
-  .project-icon.active {
-    color: var(--green);
-    border-color: rgba(63, 185, 80, 0.3);
-    background: rgba(63, 185, 80, 0.1);
-  }
+  .project-icon.active { color: var(--green); border-color: rgba(26, 127, 55, 0.3); background: var(--green-bg); }
 
-  /* Empty / Loading */
-  .loading-msg, .empty-msg {
-    text-align: center;
-    color: var(--text-dim);
-    padding: 40px;
-  }
-
-  /* No Issues Banner */
   .no-issues {
-    background: rgba(63, 185, 80, 0.08);
-    border: 1px solid rgba(63, 185, 80, 0.2);
-    border-radius: 8px;
-    padding: 16px;
+    background: var(--green-bg);
+    border: 1px solid rgba(26, 127, 55, 0.2);
+    border-radius: 10px;
+    padding: 20px;
     text-align: center;
     color: var(--green);
+    font-weight: 500;
   }
+  .loading-msg { text-align: center; color: var(--text-dim); padding: 40px; }
 </style>
 </head>
 <body>
 
+<div class="toast-container" id="toasts"></div>
+
 <div class="header">
-  <div>
-    <h1><span>God</span> Claude</h1>
-  </div>
+  <div><h1><span>God</span> Claude</h1></div>
   <div class="header-meta">
     <div id="health-badge" class="badge badge-healthy">Loading...</div>
     <div class="timestamp" id="timestamp">--</div>
@@ -229,11 +279,10 @@
   <div class="card"><div class="card-label">Status</div><div class="card-value">--</div></div>
 </div>
 
+<div class="charts" id="charts"></div>
+
 <div class="actions">
-  <button class="btn primary" id="btn-audit" onclick="triggerAudit()">
-    <span class="label">Run Audit Now</span>
-    <span class="spinner">Running...</span>
-  </button>
+  <button class="btn primary" id="btn-audit" onclick="triggerAudit()">Run Audit Now</button>
   <button class="btn" onclick="openObsidian()">Open in Obsidian</button>
   <button class="btn" onclick="triggerFix('stale-session-states')">Refresh Stale States</button>
   <button class="btn" onclick="triggerFix('empty-memory-index')">Fix Missing Indexes</button>
@@ -252,6 +301,114 @@
 <script>
 const API = window.location.origin;
 
+// === Toast Notifications ===
+function toast(message, type = "info") {
+  const container = document.getElementById("toasts");
+  const el = document.createElement("div");
+  el.className = `toast ${type}`;
+  el.textContent = message;
+  container.appendChild(el);
+  setTimeout(() => { el.style.opacity = "0"; el.style.transition = "opacity 0.3s"; setTimeout(() => el.remove(), 300); }, 3500);
+}
+
+// === Charts ===
+function renderCharts(data) {
+  const s = data.summary;
+  const container = document.getElementById("charts");
+
+  // Bar chart: project config coverage
+  const barData = [
+    { label: "CLAUDE.md", value: s.projectsWithClaudeMd, color: "#0969da" },
+    { label: "Memory", value: s.projectsWithMemory, color: "#8250df" },
+    { label: "Session", value: s.projectsWithSessionState, color: "#1a7f37" },
+    { label: "MCP", value: s.projectsWithMcp, color: "#9a6700" },
+  ];
+  const maxBar = Math.max(...barData.map(d => d.value), 1);
+
+  // Donut chart: issues by severity
+  const sevCounts = { critical: 0, warning: 0, info: 0 };
+  for (const issue of data.issues) sevCounts[issue.severity] = (sevCounts[issue.severity] || 0) + 1;
+  const total = data.issues.length || 1;
+
+  // Donut: plugin status
+  const pluginTotal = s.pluginsEnabled + s.pluginsDisabled;
+
+  container.innerHTML = `
+    <div class="chart-card">
+      <div class="chart-title">Project Config Coverage (of ${s.projectCount})</div>
+      <div class="bar-chart">
+        ${barData.map(d => `
+          <div class="bar-col">
+            <div class="bar-value">${d.value}</div>
+            <div class="bar" style="height: ${(d.value / s.projectCount) * 100}%; background: ${d.color};"></div>
+            <div class="bar-label">${d.label}</div>
+          </div>
+        `).join("")}
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-title">Issues by Severity</div>
+      <div class="donut-container">
+        ${makeDonut([
+          { value: sevCounts.critical, color: "#cf222e", label: "Critical" },
+          { value: sevCounts.warning, color: "#9a6700", label: "Warning" },
+          { value: sevCounts.info, color: "#0969da", label: "Info" },
+        ], data.issues.length === 0 ? "0" : String(data.issues.length))}
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-title">Plugin Status</div>
+      <div class="donut-container">
+        ${makeDonut([
+          { value: s.pluginsEnabled, color: "#1a7f37", label: "Enabled" },
+          { value: s.pluginsDisabled, color: "#656d76", label: "Disabled" },
+          { value: s.pluginsMissing, color: "#cf222e", label: "Missing" },
+        ], String(pluginTotal))}
+      </div>
+    </div>
+  `;
+}
+
+function makeDonut(segments, centerText) {
+  const total = segments.reduce((sum, s) => sum + s.value, 0) || 1;
+  const r = 42;
+  const circumference = 2 * Math.PI * r;
+  let offset = 0;
+
+  const circles = segments.filter(s => s.value > 0).map(s => {
+    const pct = s.value / total;
+    const dashLen = pct * circumference;
+    const circle = `<circle cx="55" cy="55" r="${r}" fill="none" stroke="${s.color}" stroke-width="14"
+      stroke-dasharray="${dashLen} ${circumference - dashLen}"
+      stroke-dashoffset="${-offset}" transform="rotate(-90 55 55)" />`;
+    offset += dashLen;
+    return circle;
+  });
+
+  if (circles.length === 0) {
+    circles.push(`<circle cx="55" cy="55" r="${r}" fill="none" stroke="#e1e4e8" stroke-width="14" />`);
+  }
+
+  const legend = segments.map(s => `
+    <div class="legend-item">
+      <div class="legend-dot" style="background: ${s.color}"></div>
+      <span>${s.label}: <strong>${s.value}</strong></span>
+    </div>
+  `).join("");
+
+  return `
+    <svg class="donut-svg" viewBox="0 0 110 110">
+      ${circles.join("")}
+      <text x="55" y="55" text-anchor="middle" dominant-baseline="central"
+        font-size="20" font-weight="700" fill="#24292f">${centerText}</text>
+    </svg>
+    <div class="donut-legend">${legend}</div>
+  `;
+}
+
+// === Data Fetching ===
 async function fetchStatus() {
   try {
     const res = await fetch(`${API}/api/status`);
@@ -266,12 +423,10 @@ async function fetchStatus() {
 function render(data) {
   if (!data) return;
 
-  // Health badge
   const badge = document.getElementById("health-badge");
   badge.textContent = data.overall.toUpperCase();
   badge.className = `badge badge-${data.overall}`;
 
-  // Timestamp
   const ts = new Date(data.timestamp);
   document.getElementById("timestamp").textContent =
     `Last audit: ${ts.toLocaleTimeString()} — ${ts.toLocaleDateString()}`;
@@ -288,12 +443,12 @@ function render(data) {
     <div class="card">
       <div class="card-label">Plugins</div>
       <div class="card-value green">${s.pluginsEnabled}</div>
-      <div class="card-detail">${s.pluginsDisabled} disabled, ${s.pluginsMissing} missing</div>
+      <div class="card-detail">${s.pluginsDisabled} disabled</div>
     </div>
     <div class="card">
       <div class="card-label">Session States</div>
       <div class="card-value ${s.sessionStatesStale > 0 ? 'yellow' : 'green'}">${s.sessionStatesTotal}</div>
-      <div class="card-detail">${s.sessionStatesStale} stale (&gt;7d)</div>
+      <div class="card-detail">${s.sessionStatesStale} stale</div>
     </div>
     <div class="card">
       <div class="card-label">Memory Dirs</div>
@@ -303,7 +458,7 @@ function render(data) {
     <div class="card">
       <div class="card-label">Watchdog</div>
       <div class="card-value ${wd.healthy ? 'green' : 'red'}">${wd.healthy ? 'UP' : 'DOWN'}</div>
-      <div class="card-detail">${wd.details?.ageMins != null ? wd.details.ageMins + 'm ago' : 'unknown'}</div>
+      <div class="card-detail">${wd.details?.ageMins != null ? wd.details.ageMins + 'm ago' : '--'}</div>
     </div>
     <div class="card">
       <div class="card-label">Issues</div>
@@ -312,16 +467,18 @@ function render(data) {
     </div>
   `;
 
+  // Charts
+  renderCharts(data);
+
   // Issues
   document.getElementById("issue-count").textContent = data.issueCount;
   if (data.issues.length === 0) {
-    document.getElementById("issues-body").innerHTML =
-      '<div class="no-issues">All systems healthy. No issues detected.</div>';
+    document.getElementById("issues-body").innerHTML = '<div class="no-issues">All systems healthy. No issues detected.</div>';
   } else {
-    let rows = data.issues.map(i => `
+    const rows = data.issues.map(i => `
       <tr class="sev-${i.severity}">
-        <td><span class="sev-dot"></span>${i.severity}</td>
-        <td>${i.source}</td>
+        <td><span class="sev-badge">${i.severity}</span></td>
+        <td class="mono">${i.source}</td>
         <td>${escapeHtml(i.message)}</td>
       </tr>
     `).join("");
@@ -329,8 +486,7 @@ function render(data) {
       <table class="issues-table">
         <thead><tr><th>Severity</th><th>Source</th><th>Issue</th></tr></thead>
         <tbody>${rows}</tbody>
-      </table>
-    `;
+      </table>`;
   }
 
   // Projects
@@ -341,7 +497,7 @@ function render(data) {
       <div class="project-name">${escapeHtml(p.devName)}</div>
       <div class="project-icons">
         <span class="project-icon ${p.hasClaudeMd ? 'active' : ''}" title="CLAUDE.md">MD</span>
-        <span class="project-icon ${p.hasMemory ? 'active' : ''}" title="Memory (${p.memoryFiles} files)">MEM${p.hasMemory ? ':' + p.memoryFiles : ''}</span>
+        <span class="project-icon ${p.hasMemory ? 'active' : ''}" title="Memory (${p.memoryFiles} files)">MEM</span>
         <span class="project-icon ${p.hasSessionState ? 'active' : ''}" title="Session State">SS</span>
         <span class="project-icon ${p.hasMcp ? 'active' : ''}" title="MCP Config">MCP</span>
       </div>
@@ -349,37 +505,43 @@ function render(data) {
   `).join("");
 }
 
+// === Actions ===
 async function triggerAudit() {
   const btn = document.getElementById("btn-audit");
-  btn.classList.add("loading");
+  const origText = btn.textContent;
+  btn.textContent = "Running...";
   btn.disabled = true;
   try {
     const res = await fetch(`${API}/api/audit`, { method: "POST" });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     render(data);
+    toast(`Audit complete: ${data.overall} (${data.issueCount} issues)`, data.overall === "healthy" ? "success" : "info");
   } catch (err) {
-    console.error("Audit failed:", err);
+    toast("Audit failed: " + err.message, "error");
   } finally {
-    btn.classList.remove("loading");
+    btn.textContent = origText;
     btn.disabled = false;
   }
 }
 
 async function triggerFix(fixId) {
+  const label = fixId.replace(/-/g, " ");
+  toast(`Applying fix: ${label}...`, "info");
   try {
     const res = await fetch(`${API}/api/fix/${fixId}`, { method: "POST" });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const result = await res.json();
-    alert(result.message);
-    // Refresh dashboard with updated audit
+    toast(result.message, result.fixed ? "success" : "error");
     const status = await fetchStatus();
-    render(status);
+    if (status) render(status);
   } catch (err) {
-    alert("Fix failed: " + err.message);
+    toast("Fix failed: " + err.message, "error");
   }
 }
 
 function openObsidian() {
-  window.open("obsidian://open?vault=Obsidian%20Vault&file=Projects%2Fgawdclaude%2F_audit", "_blank");
+  window.location.href = "obsidian://open?vault=Obsidian%20Vault&file=Projects%2Fgawdclaude%2F_audit";
 }
 
 function escapeHtml(str) {
@@ -387,13 +549,10 @@ function escapeHtml(str) {
 }
 
 // Initial load
-fetchStatus().then(render);
+fetchStatus().then(data => { if (data) render(data); else document.getElementById("issues-body").innerHTML = '<div class="loading-msg">Server not ready. Retrying...</div>'; });
 
 // Auto-refresh every 60s
-setInterval(async () => {
-  const data = await fetchStatus();
-  if (data) render(data);
-}, 60000);
+setInterval(async () => { const data = await fetchStatus(); if (data) render(data); }, 60000);
 </script>
 </body>
 </html>

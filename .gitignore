@@ -1,3 +1,4 @@
 .remember/logs/
 .remember/tmp/
 node_modules/
+config.json

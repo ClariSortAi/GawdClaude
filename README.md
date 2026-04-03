@@ -48,6 +48,9 @@ GawdClaude scans everything, flags issues by severity, and gives you a dashboard
 git clone https://github.com/ClariSortAi/GawdClaude.git
 cd GawdClaude
 
+# Interactive setup — tells GawdClaude where your projects live
+node setup.mjs
+
 # Run a one-shot audit
 node audit.mjs
 
@@ -60,6 +63,16 @@ node server.mjs
 ```
 
 No `npm install`. No build step. Everything uses Node built-in modules.
+
+### Setup
+
+`node setup.mjs` asks three questions:
+
+1. **Projects directory** — where your code repos live (e.g. `C:\Dev`, `~/dev`)
+2. **Dashboard port** — defaults to 6660
+3. **Obsidian vault** — auto-detects from `~/.claude/obsidian-hook-config.json` if you have one, otherwise asks for a path or skips it
+
+Writes a `config.json` that the audit engine and server read at startup. If you skip setup, everything falls back to sensible defaults (`~/dev` on Linux/macOS, `C:\Dev` on Windows).
 
 ---
 
@@ -93,9 +106,11 @@ Available fixes: `stale-session-states`, `empty-memory-index`.
 
 ```
 GawdClaude/
+├── setup.mjs          # Interactive setup — writes config.json
+├── config.json        # User-specific paths and settings (gitignored)
 ├── audit.mjs          # Health check engine — 9 checks, JSON output, Obsidian writer
 ├── server.mjs         # HTTP server — dashboard + API on port 6660
-├── dashboard.html     # Single-file frontend — vanilla JS, no frameworks
+├── dashboard.html     # Single-file frontend — light theme, charts, toast notifications
 ├── register-task.ps1  # Windows Task Scheduler registration
 ├── CLAUDE.md          # Meta-management role definition
 └── .remember/         # Session memory (logs, tmp)
@@ -171,14 +186,27 @@ Obsidian Vault/Projects/gawdclaude/
 
 ## Configuration
 
-All paths are hardcoded to match the current machine layout. If you're adapting this for your own setup, edit the constants at the top of `audit.mjs`:
+Run `node setup.mjs` to generate a `config.json`:
 
-```javascript
-const CLAUDE_DIR = join(HOME, ".claude");
-const DEV_DIR = "C:\\Dev";
+```json
+{
+  "devDir": "C:\\Dev",
+  "port": 6660,
+  "obsidian": {
+    "vaultRoot": "C:/Users/you/Documents/Obsidian Vault",
+    "subfolder": "Projects"
+  }
+}
 ```
 
-The Obsidian vault path is read from `~/.claude/obsidian-hook-config.json`, not hardcoded.
+| Key | What | Default |
+|-----|------|---------|
+| `devDir` | Root directory containing your project repos | `C:\Dev` (Windows), `~/dev` (macOS/Linux) |
+| `port` | Dashboard server port | `6660` |
+| `obsidian.vaultRoot` | Obsidian vault path | Auto-detected from `~/.claude/obsidian-hook-config.json` |
+| `obsidian.subfolder` | Vault subfolder for project notes | `Projects` |
+
+If `config.json` doesn't exist, the audit engine falls back to defaults. The `~/.claude/` path is always derived from your home directory — that's not configurable because it's where Claude Code lives.
 
 ---
 

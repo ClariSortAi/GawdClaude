@@ -19,10 +19,10 @@ import http from "http";
 import { readFileSync, appendFileSync, mkdirSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
-import { runAudit, writeToObsidian, applyFix } from "./audit.mjs";
+import { runAudit, writeToObsidian, applyFix, userConfig } from "./audit.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const PORT = 6660;
+const PORT = userConfig.port || 6660;
 const LOG_DIR = join(__dirname, ".remember", "logs");
 mkdirSync(LOG_DIR, { recursive: true });
 const LOG_PATH = join(LOG_DIR, "server.log");
