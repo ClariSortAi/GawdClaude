@@ -256,13 +256,26 @@ export function scoreAll() {
 // === HEALING ===
 
 export function healProject(projectResult) {
-  const { name, path: projectDir, hasClaudeMd, score } = projectResult;
+  const { name, path: projectDir, hasClaudeMd, score, findings, sections, complexity, stack } = projectResult;
   const startTime = Date.now();
 
   let action, prompt;
   if (hasClaudeMd) {
     action = "improve";
-    prompt = "/revise-claude-md";
+    // Build a targeted prompt that tells Claude exactly what's missing
+    const missing = findings.filter(f => f.startsWith("Missing:")).map(f => f.replace("Missing: ", ""));
+    if (missing.length > 0) {
+      prompt = [
+        "Read the existing CLAUDE.md in this project and improve it.",
+        `This is a ${complexity} project (${stack.join(", ") || "unknown stack"}).`,
+        `The following sections are missing or inadequate: ${missing.join(", ")}.`,
+        "Analyze the actual codebase to fill in these gaps with accurate, project-specific content.",
+        "Edit the existing CLAUDE.md directly — add the missing sections, keep existing good content.",
+        "Do not add generic boilerplate. Every line should be specific to this project.",
+      ].join(" ");
+    } else {
+      prompt = "/revise-claude-md";
+    }
   } else {
     action = "generate";
     prompt = [

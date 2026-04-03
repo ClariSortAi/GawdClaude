@@ -23,6 +23,31 @@ God Claude: inventory, audit, and optimize every Claude Code config file at both
 - Session states: `C:\Users\jason\.claude\hooks\session-state\`
 - Plugin cache: `C:\Users\jason\.claude\plugins\cache\`
 
+## Project Structure
+```
+GawdClaude/
+├── setup.mjs          # Interactive setup — writes config.json
+├── config.json        # User paths: devDir, port, obsidian vault (gitignored)
+├── audit.mjs          # Health check engine — 9 checks, JSON output, Obsidian writer
+├── improve.mjs        # CLAUDE.md scoring + healing loop (spawns headless Claude)
+├── server.mjs         # HTTP server — dashboard + API on port 6660
+├── dashboard.html     # Single-file frontend — light theme, charts, timeline
+├── register-task.ps1  # Windows Task Scheduler for nightly + server at logon
+├── CLAUDE.md          # This file
+└── .remember/         # Session logs
+```
+
+## How to Run
+```bash
+node setup.mjs              # First-time setup (writes config.json)
+node audit.mjs              # One-shot health check (JSON to stdout)
+node audit.mjs --nightly    # Health check + write to Obsidian vault
+node server.mjs             # Dashboard at http://localhost:6660
+node improve.mjs --score-only  # Score all CLAUDE.md files
+node improve.mjs            # Score + heal below threshold
+node improve.mjs --project X   # Score + heal one project
+```
+
 ## Audit Checklist
 When running a health check:
 1. Verify all enabled plugins have valid cache entries
