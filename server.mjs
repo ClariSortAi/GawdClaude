@@ -20,6 +20,7 @@ import { readFileSync, appendFileSync, mkdirSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { runAudit, writeToObsidian, applyFix, userConfig, collectToday } from "./audit.mjs";
+import { scoreAll, healProject, scoreProject } from "./improve.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = userConfig.port || 6660;
@@ -114,6 +115,32 @@ async function handleRequest(req, res) {
       const dateParam = url.searchParams.get("date") || undefined;
       const today = collectToday(dateParam);
       json(res, 200, today);
+      return;
+    }
+
+    // GET /api/scores — CLAUDE.md health scores
+    if (method === "GET" && path === "/api/scores") {
+      const scores = scoreAll();
+      json(res, 200, scores);
+      return;
+    }
+
+    // POST /api/heal/:project — Heal a single project's CLAUDE.md
+    if (method === "POST" && path.startsWith("/api/heal/")) {
+      const projectName = decodeURIComponent(path.replace("/api/heal/", ""));
+      log(`Heal requested: ${projectName}`);
+
+      // Find and score the project
+      const scores = scoreAll();
+      const project = scores.find(s => s.name === projectName);
+      if (!project) {
+        json(res, 404, { error: `Project not found: ${projectName}` });
+        return;
+      }
+
+      const result = healProject(project);
+      log(`Heal result: ${projectName} ${result.success ? result.oldScore + "→" + result.newScore : "FAILED"}`);
+      json(res, 200, result);
       return;
     }
 
