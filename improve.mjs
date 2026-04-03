@@ -47,12 +47,17 @@ const VAULT_PROJECT_DIR = VAULT_ROOT ? join(VAULT_ROOT, obsidianConfig?.subfolde
 
 const DEFAULT_THRESHOLD = 60;
 const IGNORE_DIRS = new Set([".git", "node_modules", ".next", "__pycache__", ".turbo", "dist", "build", ".venv", "venv", ".remember", ".claude"]);
-const USER_IGNORE = new Set((userConfig.ignore || []).map(s => s.toLowerCase()));
+function getIgnoreSet() {
+  try {
+    const cfg = JSON.parse(readFileSync(CONFIG_PATH, "utf-8"));
+    return new Set((cfg.ignore || []).map(s => s.toLowerCase()));
+  } catch { return new Set(); }
+}
 
 // Heuristic: is this directory a real project worth scanning?
 // Requires at least one of: git repo, package manifest, or 3+ non-hidden files
 function isRealProject(dirPath, dirName) {
-  if (USER_IGNORE.has(dirName.toLowerCase())) return false;
+  if (getIgnoreSet().has(dirName.toLowerCase())) return false;
   if (dirName.startsWith(".")) return false;
   if (dirExists(join(dirPath, ".git"))) return true;
   const manifests = ["package.json", "pyproject.toml", "go.mod", "Cargo.toml", "setup.py", "requirements.txt", "composer.json", "Gemfile", "pom.xml", "build.gradle"];

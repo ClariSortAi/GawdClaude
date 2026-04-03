@@ -7,23 +7,44 @@
  * Runs on port 6660.
  *
  * Routes:
- *   GET  /              → Dashboard HTML
- *   GET  /api/status    → Latest audit results
- *   GET  /api/projects  → Project inventory
- *   GET  /api/watchdog  → Watchdog status
- *   POST /api/audit     → Trigger fresh audit
- *   POST /api/fix/:id   → Apply a fix
+ *   GET  /                     → Dashboard HTML
+ *   GET  /api/status           → Latest audit results
+ *   GET  /api/projects         → Project inventory
+ *   GET  /api/watchdog         → Watchdog status
+ *   GET  /api/today            → Today's activity across projects
+ *   GET  /api/scores           → CLAUDE.md health scores
+ *   GET  /api/config           → Non-sensitive config (vault name, ignore list)
+ *   GET  /api/all-projects     → All projects with ignore status (manage UI)
+ *   POST /api/audit            → Trigger fresh audit
+ *   POST /api/heal/:project    → Heal a project's CLAUDE.md
+ *   POST /api/ignore/:project  → Toggle project include/exclude
+ *   POST /api/fix/:id          → Apply a fix
  */
 
 import http from "http";
-import { readFileSync, appendFileSync, mkdirSync } from "fs";
+import { readFileSync, writeFileSync, appendFileSync, mkdirSync } from "fs";
 import { join, dirname, basename } from "path";
 import { fileURLToPath } from "url";
-import { runAudit, writeToObsidian, applyFix, userConfig, collectToday } from "./audit.mjs";
+import { runAudit, writeToObsidian, applyFix, userConfig, collectToday, listAllProjects } from "./audit.mjs";
 import { scoreAll, healProject, scoreProject } from "./improve.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const CONFIG_PATH = join(__dirname, "config.json");
 const PORT = userConfig.port || 6660;
+
+// Read/write ignore list from config.json
+function readIgnoreList() {
+  try {
+    const cfg = JSON.parse(readFileSync(CONFIG_PATH, "utf-8"));
+    return cfg.ignore || [];
+  } catch { return []; }
+}
+
+function writeIgnoreList(list) {
+  const cfg = JSON.parse(readFileSync(CONFIG_PATH, "utf-8"));
+  cfg.ignore = list;
+  writeFileSync(CONFIG_PATH, JSON.stringify(cfg, null, 2) + "\n", "utf-8");
+}
 const LOG_DIR = join(__dirname, ".remember", "logs");
 mkdirSync(LOG_DIR, { recursive: true });
 const LOG_PATH = join(LOG_DIR, "server.log");
@@ -148,7 +169,42 @@ async function handleRequest(req, res) {
     if (method === "GET" && path === "/api/config") {
       json(res, 200, {
         obsidianVault: userConfig.obsidian?.vaultRoot ? basename(userConfig.obsidian.vaultRoot) : null,
+        ignore: readIgnoreList(),
       });
+      return;
+    }
+
+    // GET /api/ignore — List ignored projects
+    if (method === "GET" && path === "/api/ignore") {
+      json(res, 200, { ignore: readIgnoreList() });
+      return;
+    }
+
+    // POST /api/ignore/:project — Toggle ignore for a project
+    if (method === "POST" && path.startsWith("/api/ignore/")) {
+      const projectName = decodeURIComponent(path.replace("/api/ignore/", ""));
+      const list = readIgnoreList();
+      const idx = list.findIndex(n => n.toLowerCase() === projectName.toLowerCase());
+      if (idx >= 0) {
+        list.splice(idx, 1);
+        writeIgnoreList(list);
+        log(`Unignored: ${projectName}`);
+        json(res, 200, { action: "removed", project: projectName, ignore: list });
+      } else {
+        list.push(projectName);
+        writeIgnoreList(list);
+        log(`Ignored: ${projectName}`);
+        json(res, 200, { action: "added", project: projectName, ignore: list });
+      }
+      // Re-run audit in background so next /api/status reflects the change
+      runAudit().then(r => { lastAudit = r; }).catch(() => {});
+      return;
+    }
+
+    // GET /api/all-projects — All projects with ignore status (for manage UI)
+    if (method === "GET" && path === "/api/all-projects") {
+      const projects = listAllProjects();
+      json(res, 200, { projects, ignore: readIgnoreList() });
       return;
     }
 

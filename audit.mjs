@@ -96,11 +96,16 @@ function listFiles(parent) {
 
 const DAY_MS = 86400000;
 const STALE_THRESHOLD = 7 * DAY_MS;
-const USER_IGNORE = new Set((userConfig.ignore || []).map(s => s.toLowerCase()));
+function getIgnoreSet() {
+  try {
+    const cfg = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), "config.json"), "utf-8"));
+    return new Set((cfg.ignore || []).map(s => s.toLowerCase()));
+  } catch { return new Set(); }
+}
 
 // Heuristic: is this directory a real project worth scanning?
 function isRealProject(dirPath, dirName) {
-  if (USER_IGNORE.has(dirName.toLowerCase())) return false;
+  if (getIgnoreSet().has(dirName.toLowerCase())) return false;
   if (dirName.startsWith(".")) return false;
   if (dirExists(join(dirPath, ".git"))) return true;
   const manifests = ["package.json", "pyproject.toml", "go.mod", "Cargo.toml", "setup.py", "requirements.txt", "composer.json", "Gemfile", "pom.xml", "build.gradle"];
@@ -233,6 +238,7 @@ function checkProjects() {
   } catch { /* no dev dir */ }
 
   // Build project inventory
+  const ignoreSet = getIgnoreSet();
   for (const config of projectConfigs) {
     const memDir = join(PROJECTS_DIR, config, "memory");
     const memFiles = dirExists(memDir) ? listFiles(memDir) : [];
@@ -240,6 +246,9 @@ function checkProjects() {
     // Try to find matching dev directory
     // Config names look like C--Dev-ProjectName, dev dirs are just ProjectName
     const devName = config.replace(/^C--Dev-/, "").replace(/^C--dev-/, "");
+
+    // Skip ignored projects
+    if (ignoreSet.has(devName.toLowerCase())) continue;
     const hasDevDir = devDirs.some(d => d.toLowerCase() === devName.toLowerCase() ||
                                         d.toLowerCase().replace(/[\s_]/g, "-") === devName.toLowerCase());
 
@@ -426,6 +435,39 @@ function checkObsidianHook() {
 
 // === MAIN AUDIT ===
 export { userConfig };
+
+// List all candidate project directories (ignoring the user ignore list)
+// Returns array of { name, ignored } for the manage-projects UI
+export function listAllProjects() {
+  const ignoreSet = getIgnoreSet();
+  const ignoreNames = (() => { try { return JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), "config.json"), "utf-8")).ignore || []; } catch { return []; } })();
+  const results = [];
+  const seen = new Set();
+  try {
+    const dirs = readdirSync(DEV_DIR, { withFileTypes: true }).filter(d => d.isDirectory());
+    for (const d of dirs) {
+      if (d.name.startsWith(".")) continue;
+      const dirPath = join(DEV_DIR, d.name);
+      const ignored = ignoreSet.has(d.name.toLowerCase());
+      // Same heuristic as isRealProject but without ignore check
+      const isProject = ignored || dirExists(join(dirPath, ".git")) ||
+        ["package.json", "pyproject.toml", "go.mod", "Cargo.toml", "setup.py", "requirements.txt", "composer.json", "Gemfile", "pom.xml", "build.gradle"]
+          .some(m => fileExists(join(dirPath, m))) ||
+        (() => { try { return readdirSync(dirPath, { withFileTypes: true }).filter(e => !e.name.startsWith(".")).length >= 3; } catch { return false; } })();
+      if (!isProject) continue;
+      results.push({ name: d.name, ignored });
+      seen.add(d.name.toLowerCase());
+    }
+  } catch { /* no dev dir */ }
+  // Include ignored names that no longer exist as directories (so user can remove them)
+  for (const name of ignoreNames) {
+    if (!seen.has(name.toLowerCase())) {
+      results.push({ name, ignored: true });
+    }
+  }
+  results.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
+  return results;
+}
 
 // === TODAY: What We Got Done ===
 const VAULT_PROJECTS_DIR = VAULT_ROOT ? join(VAULT_ROOT, obsidianConfig?.subfolder || "Projects") : null;

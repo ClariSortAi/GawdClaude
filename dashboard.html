@@ -587,6 +587,160 @@
   .score-heal-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
   .score-heal-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 
+  /* Ignored section */
+  .ignored-section {
+    margin-top: 12px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .ignored-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    background: var(--bg-subtle);
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-dim);
+    transition: background 0.15s;
+  }
+  .ignored-header:hover { background: var(--border-subtle); }
+
+  /* ===== Manage Projects Modal ===== */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(4px);
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    width: 90%;
+    max-width: 640px;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: var(--shadow-lg);
+    animation: modalIn 0.15s ease-out;
+  }
+  @keyframes modalIn { from { opacity: 0; transform: scale(0.97) translateY(8px); } to { opacity: 1; transform: none; } }
+  .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .modal-header h2 {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+  .modal-header .modal-close {
+    width: 28px; height: 28px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: transparent;
+    cursor: pointer;
+    color: var(--text-dim);
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+  }
+  .modal-header .modal-close:hover { border-color: var(--accent-border); color: var(--accent); }
+  .modal-search {
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .modal-search input {
+    width: 100%;
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 13px;
+    font-family: var(--font-sans);
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .modal-search input:focus { border-color: var(--accent-border); }
+  .modal-search input::placeholder { color: var(--text-dim); }
+  .modal-body {
+    overflow-y: auto;
+    padding: 8px 0;
+    flex: 1;
+  }
+  .modal-project {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 20px;
+    transition: background 0.1s;
+  }
+  .modal-project:hover { background: var(--bg-subtle); }
+  .modal-project-name {
+    flex: 1;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+  }
+  .modal-project-name.ignored { color: var(--text-dim); text-decoration: line-through; }
+  .modal-project-status {
+    font-size: 11px;
+    color: var(--text-dim);
+    font-family: var(--font-mono);
+  }
+  /* Toggle switch */
+  .switch {
+    position: relative;
+    width: 36px;
+    height: 20px;
+    flex-shrink: 0;
+  }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .switch .slider {
+    position: absolute;
+    inset: 0;
+    background: var(--toggle-bg);
+    border-radius: 20px;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .switch .slider::after {
+    content: "";
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    left: 2px;
+    bottom: 2px;
+    background: #fff;
+    border-radius: 50%;
+    transition: transform 0.2s;
+  }
+  .switch input:checked + .slider { background: var(--green); }
+  .switch input:checked + .slider::after { transform: translateX(16px); }
+  .modal-footer {
+    padding: 12px 20px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+
   .no-issues {
     background: var(--green-bg);
     border: 1px solid var(--green-border);
@@ -702,6 +856,7 @@
   <button class="btn" onclick="openObsidian()">Obsidian</button>
   <button class="btn" onclick="triggerFix('stale-session-states')">Refresh Stale States</button>
   <button class="btn" onclick="triggerFix('empty-memory-index')">Fix Missing Indexes</button>
+  <button class="btn" onclick="openManageProjects()">Manage Projects</button>
 </div>
 
 <div class="section" id="issues-section">
@@ -712,8 +867,34 @@
 <div class="section">
   <div class="section-title">Projects <span class="count" id="project-count">0</span></div>
   <div class="project-grid" id="project-grid"><div class="skel skel-chart" style="grid-column:1/-1"></div></div>
+  <div class="ignored-section" id="ignored-section" style="display:none">
+    <div class="ignored-header" onclick="openManageProjects()">
+      <span>Excluded: <span id="ignored-count">0</span> projects hidden</span>
+      <span style="font-size:10px">click to manage</span>
+    </div>
+  </div>
 </div>
 
+</div>
+
+<!-- Manage Projects Modal -->
+<div class="modal-overlay" id="manage-modal" onclick="if(event.target===this)closeManageProjects()">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Manage Projects</h2>
+      <button class="modal-close" onclick="closeManageProjects()">&times;</button>
+    </div>
+    <div class="modal-search">
+      <input type="text" id="manage-search" placeholder="Filter projects..." oninput="filterManageList(this.value)">
+    </div>
+    <div class="modal-body" id="manage-body">
+      <div class="loading-msg">Loading...</div>
+    </div>
+    <div class="modal-footer">
+      <span id="manage-summary">--</span>
+      <button class="btn" style="padding:4px 12px;font-size:12px" onclick="closeManageProjects()">Done</button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -968,7 +1149,8 @@ function render(data) {
     return;
   }
   document.getElementById("project-grid").innerHTML = projects.map(p =>
-    '<div class="project-card"><div class="project-name">' + escapeHtml(p.devName) + '</div>' +
+    '<div class="project-card">' +
+    '<div class="project-name">' + escapeHtml(p.devName) + '</div>' +
     '<div class="project-icons">' +
     '<span class="project-icon ' + (p.hasClaudeMd ? "active" : "") + '" title="CLAUDE.md">MD</span>' +
     '<span class="project-icon ' + (p.hasMemory ? "active" : "") + '" title="Memory (' + p.memoryFiles + ')">MEM</span>' +
@@ -1127,11 +1309,119 @@ async function openObsidian() {
   } catch { toast("Failed to read config", "error"); }
 }
 
+// === Manage Projects ===
+let allProjects = [];
+let ignoredProjects = [];
+
+async function fetchIgnoreList() {
+  try {
+    const res = await fetch(API + "/api/config");
+    const cfg = await res.json();
+    ignoredProjects = cfg.ignore || [];
+    renderIgnoredSection();
+  } catch {}
+}
+
+function renderIgnoredSection() {
+  const section = document.getElementById("ignored-section");
+  const count = document.getElementById("ignored-count");
+  if (ignoredProjects.length === 0) {
+    section.style.display = "none";
+    return;
+  }
+  section.style.display = "";
+  count.textContent = ignoredProjects.length;
+}
+
+async function openManageProjects() {
+  const modal = document.getElementById("manage-modal");
+  modal.classList.add("open");
+  document.getElementById("manage-search").value = "";
+  document.getElementById("manage-body").innerHTML = '<div style="padding:20px;color:var(--text-dim);font-size:13px">Loading...</div>';
+  try {
+    const res = await fetch(API + "/api/all-projects");
+    const data = await res.json();
+    allProjects = data.projects;
+    renderManageList("");
+  } catch (err) {
+    document.getElementById("manage-body").innerHTML = '<div style="padding:20px;color:var(--red);font-size:13px">Failed: ' + escapeHtml(err.message) + '</div>';
+  }
+}
+
+function closeManageProjects() {
+  document.getElementById("manage-modal").classList.remove("open");
+}
+
+function filterManageList(query) {
+  renderManageList(query.toLowerCase().trim());
+}
+
+function renderManageList(filter) {
+  const body = document.getElementById("manage-body");
+  const filtered = filter ? allProjects.filter(p => p.name.toLowerCase().includes(filter)) : allProjects;
+  const active = allProjects.filter(p => !p.ignored).length;
+  document.getElementById("manage-summary").textContent = active + " active / " + allProjects.length + " total";
+
+  if (filtered.length === 0) {
+    body.innerHTML = '<div style="padding:20px;color:var(--text-dim);font-size:13px">No match</div>';
+    return;
+  }
+
+  body.innerHTML = filtered.map(p =>
+    '<div class="modal-project" data-name="' + escapeHtml(p.name) + '">' +
+    '<span class="modal-project-name' + (p.ignored ? ' ignored' : '') + '">' + escapeHtml(p.name) + '</span>' +
+    (p.ignored ? '<span class="modal-project-status">excluded</span>' : '') +
+    '<label class="switch">' +
+    '<input type="checkbox"' + (p.ignored ? '' : ' checked') + ' onchange="toggleProject(\'' + escapeHtml(p.name) + '\', this)">' +
+    '<span class="slider"></span>' +
+    '</label></div>'
+  ).join("");
+}
+
+async function toggleProject(name, checkbox) {
+  const row = checkbox.closest(".modal-project");
+  const nameEl = row.querySelector(".modal-project-name");
+  try {
+    const res = await fetch(API + "/api/ignore/" + encodeURIComponent(name), { method: "POST" });
+    const result = await res.json();
+    ignoredProjects = result.ignore;
+    const proj = allProjects.find(p => p.name === name);
+    if (proj) proj.ignored = result.action === "added";
+    const statusEl = row.querySelector(".modal-project-status");
+    if (result.action === "added") {
+      nameEl.classList.add("ignored");
+      if (!statusEl) {
+        const s = document.createElement("span");
+        s.className = "modal-project-status";
+        s.textContent = "excluded";
+        row.insertBefore(s, row.querySelector(".switch"));
+      }
+    } else {
+      nameEl.classList.remove("ignored");
+      if (statusEl) statusEl.remove();
+    }
+    const active = allProjects.filter(p => !p.ignored).length;
+    document.getElementById("manage-summary").textContent = active + " active / " + allProjects.length + " total";
+    renderIgnoredSection();
+    Promise.all([fetchStatus(), fetchScores()]).then(([status, scores]) => {
+      if (status) render(status);
+      if (scores) { renderScores(scores); renderScoreHistogram(scores); }
+    });
+  } catch (err) {
+    checkbox.checked = !checkbox.checked;
+    toast("Failed: " + err.message, "error");
+  }
+}
+
 function escapeHtml(str) {
   return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
+// === Keyboard ===
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeManageProjects(); });
+
 // === Init ===
+fetchIgnoreList();
 Promise.all([fetchStatus(), fetchToday(), fetchScores()]).then(([status, today, scores]) => {
   if (status) render(status);
   else document.getElementById("issues-body").innerHTML = '<div class="loading-msg">Server not ready. Retrying...</div>';
