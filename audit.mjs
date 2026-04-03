@@ -14,12 +14,13 @@
  */
 
 import { readFileSync, writeFileSync, appendFileSync, existsSync, readdirSync, statSync, mkdirSync } from "fs";
-import { join, basename } from "path";
+import { join, basename, dirname } from "path";
 import { homedir } from "os";
+import { fileURLToPath } from "url";
 import { execSync } from "child_process";
 
 // === CONFIG ===
-const __dirname = import.meta.dirname;
+const __dirname = dirname(fileURLToPath(import.meta.url));
 const CONFIG_PATH = join(__dirname, "config.json");
 
 let userConfig = {};
@@ -296,14 +297,16 @@ function checkProjects() {
 }
 
 function checkWatchdog() {
-  const result = { healthy: false, details: {} };
+  const result = { healthy: false, details: {}, configured: false };
   const status = safeReadJSON(WATCHDOG_STATUS);
 
   if (status._error) {
+    // No watchdog configured — this is optional, not an error
     result.details.error = status._error;
-    result.issues = ["Cannot read watchdog-status.json"];
+    result.issues = [];
     return result;
   }
+  result.configured = true;
 
   const age = fileAge(WATCHDOG_STATUS);
   result.details = {
@@ -626,8 +629,11 @@ export async function runAudit() {
     sessionStatesStale: ss.stale.length,
     memoryDirsTotal: mem.dirs.length,
     memoryDirsEmpty: mem.empty.length,
+    watchdogConfigured: results.checks.watchdog.configured,
     watchdogHealthy: results.checks.watchdog.healthy,
     obsidianHookHealthy: results.checks.obsidianHook.healthy,
+    devDir: DEV_DIR,
+    devDirExists: dirExists(DEV_DIR),
   };
 
   return results;
@@ -661,7 +667,7 @@ function generateObsidianReport(results) {
     "  - auto-generated",
     "---",
     "",
-    `# God Claude Audit Report — ${date}`,
+    `# Gawd Claude Audit Report — ${date}`,
     "",
     `> Auto-generated at ${time}. Overall: **${badge}** | Issues: **${results.issueCount}**`,
     "",

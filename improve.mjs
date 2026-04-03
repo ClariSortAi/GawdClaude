@@ -19,12 +19,13 @@
  */
 
 import { readFileSync, writeFileSync, existsSync, readdirSync, statSync, appendFileSync, mkdirSync } from "fs";
-import { join, basename } from "path";
+import { join, basename, dirname } from "path";
 import { homedir } from "os";
+import { fileURLToPath } from "url";
 import { execFileSync, execSync } from "child_process";
 
 // === CONFIG ===
-const __dirname = import.meta.dirname;
+const __dirname = dirname(fileURLToPath(import.meta.url));
 const CONFIG_PATH = join(__dirname, "config.json");
 
 let userConfig = {};

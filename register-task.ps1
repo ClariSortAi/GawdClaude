@@ -1,5 +1,12 @@
 # GawdClaude Task Scheduler Registration
-# Run: powershell -ExecutionPolicy Bypass -File register-task.ps1
+# Run from an elevated PowerShell: powershell -ExecutionPolicy Bypass -File register-task.ps1
+
+# --- Admin check ---
+if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+  Write-Host "ERROR: This script requires Administrator privileges." -ForegroundColor Red
+  Write-Host "Right-click PowerShell and select 'Run as administrator', then try again." -ForegroundColor Yellow
+  exit 1
+}
 
 $nodePath = (Get-Command node).Source
 $projectDir = $PSScriptRoot

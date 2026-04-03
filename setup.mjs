@@ -12,11 +12,13 @@
  */
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
-import { join } from "path";
+import { join, dirname } from "path";
 import { homedir } from "os";
+import { fileURLToPath } from "url";
 import { createInterface } from "readline";
 
-const CONFIG_PATH = join(import.meta.dirname, "config.json");
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const CONFIG_PATH = join(__dirname, "config.json");
 const HOME = homedir();
 const CLAUDE_DIR = join(HOME, ".claude");
 
@@ -93,7 +95,7 @@ console.log("  " + JSON.stringify(config, null, 2).split("\n").join("\n  "));
 console.log("");
 
 // --- Create log directory ---
-const logDir = join(import.meta.dirname, ".remember", "logs");
+const logDir = join(__dirname, ".remember", "logs");
 mkdirSync(logDir, { recursive: true });
 
 console.log("  Setup complete. Next steps:");
