@@ -265,8 +265,21 @@ Run `node setup.mjs` (or let `setup.ps1` run it for you) to generate `config.jso
 | `port` | Dashboard server port | `6660` |
 | `obsidian.vaultRoot` | Obsidian vault path | Auto-detected or asked during setup |
 | `obsidian.subfolder` | Vault subfolder for project notes | `Projects` |
+| `ignore` | Array of directory names to skip when scanning | `[]` |
 
 If `config.json` doesn't exist, the audit engine falls back to defaults. The `~/.claude/` path is always derived from your home directory — that's not configurable because it's where Claude Code lives.
+
+### Project filtering
+
+Not everything in your dev directory is a real project. GawdClaude automatically skips directories that don't look like projects — no git repo, no package manifest (`package.json`, `pyproject.toml`, `go.mod`, etc.), and fewer than 3 files. Empty folders, temp dirs, and stubs are filtered out.
+
+For anything the heuristic doesn't catch, add directory names to the `ignore` array in `config.json`:
+
+```json
+{
+  "ignore": ["New folder", "temp", "archive"]
+}
+```
 
 ---
 

@@ -96,6 +96,20 @@ function listFiles(parent) {
 
 const DAY_MS = 86400000;
 const STALE_THRESHOLD = 7 * DAY_MS;
+const USER_IGNORE = new Set((userConfig.ignore || []).map(s => s.toLowerCase()));
+
+// Heuristic: is this directory a real project worth scanning?
+function isRealProject(dirPath, dirName) {
+  if (USER_IGNORE.has(dirName.toLowerCase())) return false;
+  if (dirName.startsWith(".")) return false;
+  if (dirExists(join(dirPath, ".git"))) return true;
+  const manifests = ["package.json", "pyproject.toml", "go.mod", "Cargo.toml", "setup.py", "requirements.txt", "composer.json", "Gemfile", "pom.xml", "build.gradle"];
+  for (const m of manifests) { if (fileExists(join(dirPath, m))) return true; }
+  try {
+    const entries = readdirSync(dirPath, { withFileTypes: true }).filter(e => !e.name.startsWith("."));
+    return entries.length >= 3;
+  } catch { return false; }
+}
 
 // === AUDIT CHECKS ===
 
@@ -210,11 +224,11 @@ function checkProjects() {
   // Get all project configs
   const projectConfigs = listDirs(PROJECTS_DIR);
 
-  // Get all dev directories
+  // Get all dev directories (filtered to real projects)
   let devDirs = [];
   try {
     devDirs = readdirSync(DEV_DIR, { withFileTypes: true })
-      .filter(d => d.isDirectory())
+      .filter(d => d.isDirectory() && isRealProject(join(DEV_DIR, d.name), d.name))
       .map(d => d.name);
   } catch { /* no dev dir */ }
 
@@ -335,7 +349,7 @@ function checkMcpConfigs() {
   let devDirs = [];
   try {
     devDirs = readdirSync(DEV_DIR, { withFileTypes: true })
-      .filter(d => d.isDirectory())
+      .filter(d => d.isDirectory() && isRealProject(join(DEV_DIR, d.name), d.name))
       .map(d => d.name);
   } catch { return result; }
 

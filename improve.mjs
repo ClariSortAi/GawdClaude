@@ -47,6 +47,21 @@ const VAULT_PROJECT_DIR = VAULT_ROOT ? join(VAULT_ROOT, obsidianConfig?.subfolde
 
 const DEFAULT_THRESHOLD = 60;
 const IGNORE_DIRS = new Set([".git", "node_modules", ".next", "__pycache__", ".turbo", "dist", "build", ".venv", "venv", ".remember", ".claude"]);
+const USER_IGNORE = new Set((userConfig.ignore || []).map(s => s.toLowerCase()));
+
+// Heuristic: is this directory a real project worth scanning?
+// Requires at least one of: git repo, package manifest, or 3+ non-hidden files
+function isRealProject(dirPath, dirName) {
+  if (USER_IGNORE.has(dirName.toLowerCase())) return false;
+  if (dirName.startsWith(".")) return false;
+  if (dirExists(join(dirPath, ".git"))) return true;
+  const manifests = ["package.json", "pyproject.toml", "go.mod", "Cargo.toml", "setup.py", "requirements.txt", "composer.json", "Gemfile", "pom.xml", "build.gradle"];
+  for (const m of manifests) { if (fileExists(join(dirPath, m))) return true; }
+  try {
+    const entries = readdirSync(dirPath, { withFileTypes: true }).filter(e => !e.name.startsWith("."));
+    return entries.length >= 3;
+  } catch { return false; }
+}
 
 // Resolve claude CLI — on Windows we need claude.cmd for execFileSync
 function findClaude() {
@@ -245,6 +260,7 @@ export function scoreAll() {
     const dirs = readdirSync(DEV_DIR, { withFileTypes: true }).filter(d => d.isDirectory());
     for (const d of dirs) {
       const projectDir = join(DEV_DIR, d.name);
+      if (!isRealProject(projectDir, d.name)) continue;
       results.push(scoreProject(projectDir));
     }
   } catch (err) {

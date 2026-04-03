@@ -4,5 +4,6 @@
   "obsidian": {
     "vaultRoot": "C:/Users/you/Documents/Obsidian Vault",
     "subfolder": "Projects"
-  }
+  },
+  "ignore": ["New folder", "temp", "archive"]
 }
