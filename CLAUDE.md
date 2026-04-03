@@ -14,10 +14,11 @@ GawdClaude/
 ├── audit.mjs          # Health check engine — 9 checks, JSON output, Obsidian writer
 ├── improve.mjs        # CLAUDE.md scoring + healing loop (spawns headless Claude)
 ├── server.mjs         # HTTP server — dashboard + API on port 6660
-├── dashboard.html     # Single-file frontend — light/dark theme, charts, timeline
+├── dashboard.html     # Single-file frontend — theme toggle, charts, timeline, scores, manage projects
 ├── register-task.ps1  # Windows Task Scheduler for nightly + server at logon (admin)
 ├── config.example.json # Sample config for new users
 ├── CLAUDE.md          # This file
+├── README.md          # User-facing documentation
 └── .remember/         # Session logs (gitignored)
 ```
 
@@ -53,6 +54,7 @@ When running a health check:
 6. Verify .mcp.json files are valid JSON
 7. Cross-reference project configs with actual project directories
 8. Flag orphaned configs (project deleted but config remains)
+9. Check watchdog status (webhook, ngrok health)
 
 ## CLAUDE.md Healing Loop
 - `improve.mjs` scores every project's CLAUDE.md 0-100 based on section coverage, complexity match, freshness

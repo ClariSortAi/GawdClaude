@@ -94,6 +94,7 @@ No `npm install`. No build step.
 | Obsidian hook | Config is valid, hook is registered, vault path exists |
 | MCP configs | All `.mcp.json` files are valid JSON |
 | Orphan detection | Flags configs for deleted projects (and vice versa) |
+| Watchdog | Checks `watchdog-status.json` for service health (webhook, ngrok) |
 | **CLAUDE.md quality** | Scores 0-100 based on content vs project complexity |
 
 ---
@@ -108,6 +109,7 @@ Light/dark theme toggle, charts, and toast notifications. Serves on `localhost:6
 - Charts: project config coverage bar chart, issues-by-severity donut, plugin status donut
 - **Today timeline**: what you got done across all projects, pulled from Obsidian vault diaries and session-state files
 - **CLAUDE.md health**: score ring per project (0-100), one-click "Heal" button on anything below threshold
+- **Manage Projects**: modal with toggle switches to include/exclude projects from auditing and scoring
 - Issues table with severity, source, and description
 - Project grid showing config completeness (CLAUDE.md, memory, session state, MCP)
 
@@ -120,8 +122,12 @@ Light/dark theme toggle, charts, and toast notifications. Serves on `localhost:6
 | `GET` | `/api/projects` | Project inventory |
 | `GET` | `/api/today` | Today's activity across projects |
 | `GET` | `/api/scores` | CLAUDE.md health scores |
+| `GET` | `/api/watchdog` | Watchdog service status |
+| `GET` | `/api/config` | Non-sensitive config (vault name, ignore list) |
+| `GET` | `/api/all-projects` | All projects with ignore status (manage UI) |
 | `POST` | `/api/audit` | Trigger fresh audit |
 | `POST` | `/api/heal/:project` | Heal a single project's CLAUDE.md |
+| `POST` | `/api/ignore/:project` | Toggle project include/exclude |
 | `POST` | `/api/fix/:id` | Apply a known fix |
 
 Available fixes: `stale-session-states`, `empty-memory-index`.
@@ -175,9 +181,10 @@ GawdClaude/
 ├── audit.mjs          # Health check engine — 9 checks, JSON output, Obsidian writer
 ├── improve.mjs        # CLAUDE.md scoring + healing loop
 ├── server.mjs         # HTTP server — dashboard + API
-├── dashboard.html     # Single-file frontend — light/dark theme, charts, timeline, scores
+├── dashboard.html     # Single-file frontend — theme toggle, charts, timeline, scores, manage projects
 ├── register-task.ps1  # Windows Task Scheduler registration (requires admin)
 ├── CLAUDE.md          # Project instructions for Claude Code
+├── README.md          # This file
 └── .remember/         # Session memory (gitignored)
 ```
 
@@ -273,7 +280,7 @@ If `config.json` doesn't exist, the audit engine falls back to defaults. The `~/
 
 Not everything in your dev directory is a real project. GawdClaude automatically skips directories that don't look like projects — no git repo, no package manifest (`package.json`, `pyproject.toml`, `go.mod`, etc.), and fewer than 3 files. Empty folders, temp dirs, and stubs are filtered out.
 
-For anything the heuristic doesn't catch, add directory names to the `ignore` array in `config.json`:
+For anything the heuristic doesn't catch, use the **Manage Projects** button on the dashboard — it shows every discovered project with on/off toggles. Toggling a project off adds it to the `ignore` array in `config.json` and immediately re-runs the audit. You can also edit the array directly:
 
 ```json
 {
