@@ -261,7 +261,7 @@
   /* ===== Charts ===== */
   .charts {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(2, 1fr);
     gap: 12px;
     margin-bottom: 24px;
   }
@@ -275,35 +275,64 @@
   .chart-title {
     font-size: 12px;
     font-weight: 500;
-    margin-bottom: 16px;
+    margin-bottom: 14px;
     color: var(--text-secondary);
     letter-spacing: -0.01em;
   }
 
-  /* Bar chart */
-  .bar-chart { display: flex; align-items: flex-end; gap: 8px; height: 120px; }
-  .bar-col { display: flex; flex-direction: column; align-items: center; flex: 1; height: 100%; justify-content: flex-end; }
-  .bar {
-    width: 100%; max-width: 40px;
-    border-radius: 4px 4px 1px 1px;
-    min-height: 2px;
-    animation: barGrow 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  /* Horizontal coverage bars */
+  .h-bars { display: flex; flex-direction: column; gap: 10px; }
+  .h-bar-row { display: flex; align-items: center; gap: 10px; }
+  .h-bar-label { font-size: 11px; color: var(--text-dim); width: 64px; flex-shrink: 0; text-align: right; font-weight: 500; }
+  .h-bar-track { flex: 1; height: 20px; background: var(--bg-subtle); border-radius: 4px; overflow: hidden; position: relative; }
+  .h-bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+    min-width: 2px;
   }
-  .bar-col:nth-child(1) .bar { animation-delay: 0.1s; }
-  .bar-col:nth-child(2) .bar { animation-delay: 0.15s; }
-  .bar-col:nth-child(3) .bar { animation-delay: 0.2s; }
-  .bar-col:nth-child(4) .bar { animation-delay: 0.25s; }
-  .bar-label { font-size: 10px; color: var(--text-dim); margin-top: 6px; font-weight: 500; }
-  .bar-value { font-size: 12px; font-weight: 600; margin-bottom: 4px; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+  .h-bar-pct {
+    font-size: 11px;
+    font-family: var(--font-mono);
+    font-weight: 600;
+    color: var(--text);
+    width: 42px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Score histogram */
+  .histogram { display: flex; align-items: flex-end; gap: 3px; height: 80px; }
+  .hist-bar-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; height: 100%; justify-content: flex-end; }
+  .hist-bar {
+    width: 100%;
+    border-radius: 3px 3px 1px 1px;
+    min-height: 0;
+    animation: barGrow 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  }
+  .hist-bar-wrap:nth-child(1) .hist-bar { animation-delay: 0.08s; }
+  .hist-bar-wrap:nth-child(2) .hist-bar { animation-delay: 0.12s; }
+  .hist-bar-wrap:nth-child(3) .hist-bar { animation-delay: 0.16s; }
+  .hist-bar-wrap:nth-child(4) .hist-bar { animation-delay: 0.20s; }
+  .hist-bar-wrap:nth-child(5) .hist-bar { animation-delay: 0.24s; }
+  .hist-count { font-size: 10px; font-weight: 600; font-family: var(--font-mono); margin-bottom: 3px; color: var(--text); }
+  .hist-labels { display: flex; gap: 3px; margin-top: 6px; }
+  .hist-label { flex: 1; font-size: 9px; color: var(--text-dim); text-align: center; font-family: var(--font-mono); }
+  .hist-avg { font-size: 11px; color: var(--text-dim); margin-top: 8px; font-family: var(--font-mono); }
+  .hist-avg strong { color: var(--text); }
 
   /* Donut chart */
-  .donut-container { display: flex; align-items: center; gap: 24px; }
-  .donut-svg { width: 100px; height: 100px; }
+  .donut-container { display: flex; align-items: center; gap: 20px; }
+  .donut-svg { width: 90px; height: 90px; }
   .donut-svg circle { transition: stroke-dashoffset 0.8s cubic-bezier(0.4, 0, 0.2, 1); }
-  .donut-legend { display: flex; flex-direction: column; gap: 6px; }
+  .donut-legend { display: flex; flex-direction: column; gap: 5px; }
   .legend-item { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-secondary); }
   .legend-item strong { color: var(--text); font-variant-numeric: tabular-nums; }
   .legend-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+
+  /* Compact donut pair (side by side in one card) */
+  .donut-pair { display: flex; gap: 24px; }
+  .donut-pair .donut-container { flex: 1; }
 
   /* ===== Actions ===== */
   .actions {
@@ -601,6 +630,7 @@
     .cards { grid-template-columns: repeat(3, 1fr); }
     .card.card-wide { grid-column: span 1; }
     .charts { grid-template-columns: 1fr; }
+    .donut-pair { flex-direction: column; gap: 16px; }
   }
   @media (max-width: 600px) {
     .wrap { padding: 0 16px 32px; }
@@ -650,7 +680,6 @@
 </div>
 
 <div class="charts" id="charts">
-  <div class="skel skel-chart"></div>
   <div class="skel skel-chart"></div>
   <div class="skel skel-chart"></div>
 </div>
@@ -722,51 +751,107 @@ function toast(message, type = "info") {
 function renderCharts(data) {
   const s = data.summary;
   const container = document.getElementById("charts");
+  const total = s.projectCount || 1;
 
-  const barData = [
+  // Horizontal coverage bars
+  const coverageBars = [
     { label: "CLAUDE.md", value: s.projectsWithClaudeMd, color: "var(--accent)" },
-    { label: "Memory", value: s.projectsWithMemory, color: "var(--text-dim)" },
-    { label: "Session", value: s.projectsWithSessionState, color: "var(--green)" },
-    { label: "MCP", value: s.projectsWithMcp, color: "var(--yellow)" },
-  ];
+    { label: "Memory", value: s.projectsWithMemory, color: "var(--green)" },
+    { label: "Session", value: s.projectsWithSessionState, color: "var(--yellow)" },
+    { label: "MCP", value: s.projectsWithMcp, color: "var(--text-dim)" },
+  ].map(d =>
+    '<div class="h-bar-row"><span class="h-bar-label">' + d.label + '</span>' +
+    '<div class="h-bar-track"><div class="h-bar-fill" style="width:' + ((d.value / total) * 100) + '%;background:' + d.color + '"></div></div>' +
+    '<span class="h-bar-pct">' + d.value + '/' + total + '</span></div>'
+  ).join("");
 
+  // Smart issue breakdown: by source when all same severity, by severity when mixed
   const sevCounts = { critical: 0, warning: 0, info: 0 };
-  for (const issue of data.issues) sevCounts[issue.severity] = (sevCounts[issue.severity] || 0) + 1;
+  const srcCounts = {};
+  for (const issue of data.issues) {
+    sevCounts[issue.severity] = (sevCounts[issue.severity] || 0) + 1;
+    srcCounts[issue.source] = (srcCounts[issue.source] || 0) + 1;
+  }
+  const distinctSeverities = Object.values(sevCounts).filter(v => v > 0).length;
+  const srcColors = { memoryDirs: "var(--yellow)", projects: "var(--accent)", sessionStates: "var(--green)", plugins: "var(--red)", mcpConfigs: "var(--blue)", obsidianHook: "var(--text-dim)", watchdog: "var(--text-dim)", settings: "var(--text-dim)" };
 
+  let issueDonut;
+  if (data.issues.length === 0) {
+    issueDonut = '<div class="chart-title">Issues</div><div class="donut-container">' +
+      makeDonut([], "0") + '</div>';
+  } else if (distinctSeverities <= 1) {
+    // All same severity — show by source (more useful)
+    const srcSegments = Object.entries(srcCounts).map(([k, v]) => ({ value: v, color: srcColors[k] || "var(--text-dim)", label: k }));
+    issueDonut = '<div class="chart-title">Issues by Source</div><div class="donut-container">' +
+      makeDonut(srcSegments, String(data.issues.length)) + '</div>';
+  } else {
+    issueDonut = '<div class="chart-title">Issues by Severity</div><div class="donut-container">' +
+      makeDonut([
+        { value: sevCounts.critical, color: "var(--red)", label: "Critical" },
+        { value: sevCounts.warning, color: "var(--yellow)", label: "Warning" },
+        { value: sevCounts.info, color: "var(--blue)", label: "Info" },
+      ], String(data.issues.length)) + '</div>';
+  }
+
+  // Plugins donut
   const pluginTotal = s.pluginsEnabled + s.pluginsDisabled;
-
-  container.innerHTML = [
-    '<div class="chart-card fade-in fade-in-1">',
-    '  <div class="chart-title">Config Coverage (of ' + s.projectCount + ')</div>',
-    '  <div class="bar-chart">',
-    barData.map(d =>
-      '<div class="bar-col"><div class="bar-value">' + d.value + '</div>' +
-      '<div class="bar" style="height:' + ((d.value / (s.projectCount || 1)) * 100) + '%;background:' + d.color + '"></div>' +
-      '<div class="bar-label">' + d.label + '</div></div>'
-    ).join(""),
-    '  </div>',
-    '</div>',
-    '<div class="chart-card fade-in fade-in-2">',
-    '  <div class="chart-title">Issues by Severity</div>',
-    '  <div class="donut-container">',
-    makeDonut([
-      { value: sevCounts.critical, color: "var(--red)", label: "Critical" },
-      { value: sevCounts.warning, color: "var(--yellow)", label: "Warning" },
-      { value: sevCounts.info, color: "var(--blue)", label: "Info" },
-    ], data.issues.length === 0 ? "0" : String(data.issues.length)),
-    '  </div>',
-    '</div>',
-    '<div class="chart-card fade-in fade-in-3">',
-    '  <div class="chart-title">Plugins</div>',
-    '  <div class="donut-container">',
+  const pluginDonut = '<div class="chart-title">Plugins</div><div class="donut-container">' +
     makeDonut([
       { value: s.pluginsEnabled, color: "var(--green)", label: "Enabled" },
       { value: s.pluginsDisabled, color: "var(--text-dim)", label: "Disabled" },
       { value: s.pluginsMissing, color: "var(--red)", label: "Missing" },
-    ], String(pluginTotal)),
-    '  </div>',
-    '</div>',
-  ].join("\n");
+    ], String(pluginTotal)) + '</div>';
+
+  container.innerHTML =
+    '<div class="chart-card fade-in fade-in-1">' +
+    '  <div class="chart-title">Config Coverage</div>' +
+    '  <div class="h-bars">' + coverageBars + '</div>' +
+    '</div>' +
+    '<div class="chart-card fade-in fade-in-2">' +
+    '  <div class="donut-pair">' +
+    '    <div>' + issueDonut + '</div>' +
+    '    <div>' + pluginDonut + '</div>' +
+    '  </div>' +
+    '</div>';
+}
+
+// === Score Histogram (called separately since it uses scores API) ===
+function renderScoreHistogram(scores) {
+  if (!scores || scores.length === 0) return;
+  const filtered = scores.filter(s => s.fileCount > 0);
+  if (filtered.length === 0) return;
+
+  const buckets = [
+    { label: "0-19", min: 0, max: 19, count: 0, color: "var(--red)" },
+    { label: "20-39", min: 20, max: 39, count: 0, color: "var(--yellow)" },
+    { label: "40-59", min: 40, max: 59, count: 0, color: "var(--yellow)" },
+    { label: "60-79", min: 60, max: 79, count: 0, color: "var(--green)" },
+    { label: "80+", min: 80, max: 100, count: 0, color: "var(--accent)" },
+  ];
+  for (const s of filtered) {
+    for (const b of buckets) { if (s.score >= b.min && s.score <= b.max) { b.count++; break; } }
+  }
+  const maxCount = Math.max(...buckets.map(b => b.count), 1);
+  const avg = Math.round(filtered.reduce((sum, s) => sum + s.score, 0) / filtered.length);
+
+  // Insert histogram card into charts grid
+  const chartsEl = document.getElementById("charts");
+  const histCard = document.createElement("div");
+  histCard.className = "chart-card fade-in";
+  histCard.style.gridColumn = "1 / -1";
+  histCard.innerHTML =
+    '<div class="chart-title">CLAUDE.md Score Distribution (' + filtered.length + ' projects)</div>' +
+    '<div class="histogram">' +
+    buckets.map(b =>
+      '<div class="hist-bar-wrap">' +
+      (b.count > 0 ? '<div class="hist-count">' + b.count + '</div>' : '') +
+      '<div class="hist-bar" style="height:' + ((b.count / maxCount) * 100) + '%;background:' + b.color + '"></div>' +
+      '</div>'
+    ).join("") +
+    '</div>' +
+    '<div class="hist-labels">' + buckets.map(b => '<div class="hist-label">' + b.label + '</div>').join("") + '</div>' +
+    '<div class="hist-avg">avg score: <strong>' + avg + '</strong>/100</div>';
+  chartsEl.appendChild(histCard);
 }
 
 function makeDonut(segments, centerText) {
@@ -1051,7 +1136,7 @@ Promise.all([fetchStatus(), fetchToday(), fetchScores()]).then(([status, today, 
   if (status) render(status);
   else document.getElementById("issues-body").innerHTML = '<div class="loading-msg">Server not ready. Retrying...</div>';
   if (today) renderToday(today);
-  if (scores) renderScores(scores);
+  if (scores) { renderScores(scores); renderScoreHistogram(scores); }
 });
 
 let scoreRefreshCount = 0;
@@ -1062,7 +1147,7 @@ setInterval(async () => {
   if (today) renderToday(today);
   if (scoreRefreshCount % 5 === 0) {
     const scores = await fetchScores();
-    if (scores) renderScores(scores);
+    if (scores) { renderScores(scores); renderScoreHistogram(scores); }
   }
 }, 60000);
 </script>
