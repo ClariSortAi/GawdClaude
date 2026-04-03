@@ -251,6 +251,104 @@
   }
   .project-icon.active { color: var(--green); border-color: rgba(26, 127, 55, 0.3); background: var(--green-bg); }
 
+  /* Today Timeline */
+  .today-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .today-totals {
+    display: flex;
+    gap: 16px;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  .today-totals strong { color: var(--text); }
+  .timeline { display: flex; flex-direction: column; gap: 0; }
+  .timeline-project {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 10px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .timeline-project-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+  }
+  .timeline-project-header:hover { background: #eef1f4; }
+  .timeline-project-name { font-weight: 600; font-size: 14px; }
+  .timeline-project-meta { font-size: 12px; color: var(--text-dim); display: flex; gap: 12px; }
+  .timeline-sessions { padding: 0; }
+  .timeline-session {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .timeline-session:last-child { border-bottom: none; }
+  .session-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 6px;
+  }
+  .session-time {
+    font-family: 'Cascadia Code', 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--purple);
+    font-weight: 600;
+    background: rgba(130, 80, 223, 0.08);
+    padding: 2px 8px;
+    border-radius: 4px;
+  }
+  .session-focus { font-size: 13px; color: var(--text); }
+  .session-accomplishments {
+    margin: 8px 0 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  .session-accomplishments li {
+    font-size: 12px;
+    color: var(--text);
+    padding: 2px 0 2px 20px;
+    position: relative;
+  }
+  .session-accomplishments li::before {
+    content: "\2713";
+    position: absolute;
+    left: 0;
+    color: var(--green);
+    font-weight: 700;
+    font-size: 13px;
+  }
+  .session-nextsteps { margin-top: 6px; }
+  .session-nextsteps li::before { content: "\2192"; color: var(--blue); }
+  .session-branch {
+    display: inline-block;
+    font-size: 11px;
+    font-family: 'Cascadia Code', monospace;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 1px 6px;
+    border-radius: 4px;
+    color: var(--text-dim);
+  }
+  .today-empty {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 32px;
+    text-align: center;
+    color: var(--text-dim);
+    box-shadow: var(--shadow);
+  }
+
   .no-issues {
     background: var(--green-bg);
     border: 1px solid rgba(26, 127, 55, 0.2);
@@ -280,6 +378,14 @@
 </div>
 
 <div class="charts" id="charts"></div>
+
+<div class="section" id="today-section">
+  <div class="today-header">
+    <div class="section-title">Today <span class="count" id="today-count">--</span></div>
+    <div class="today-totals" id="today-totals"></div>
+  </div>
+  <div id="today-body"><div class="loading-msg">Loading today's activity...</div></div>
+</div>
 
 <div class="actions">
   <button class="btn primary" id="btn-audit" onclick="triggerAudit()">Run Audit Now</button>
@@ -505,6 +611,71 @@ function render(data) {
   `).join("");
 }
 
+// === Today ===
+async function fetchToday() {
+  try {
+    const res = await fetch(`${API}/api/today`);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch { return null; }
+}
+
+function renderToday(data) {
+  if (!data) return;
+  const t = data.totals;
+  document.getElementById("today-count").textContent = `${t.projectsActive} projects`;
+  document.getElementById("today-totals").innerHTML = `
+    <span><strong>${t.sessionsTotal}</strong> sessions</span>
+    <span><strong>${t.accomplishmentsTotal}</strong> accomplishments</span>
+  `;
+
+  const body = document.getElementById("today-body");
+
+  // Filter to projects with actual content
+  const active = data.projects.filter(p => p.sessions.some(s => s.focus || s.accomplishments.length > 0));
+
+  if (active.length === 0) {
+    body.innerHTML = '<div class="today-empty">No sessions with activity yet today.</div>';
+    return;
+  }
+
+  body.innerHTML = '<div class="timeline">' + active.map(p => {
+    const totalAcc = p.sessions.reduce((s, sess) => s + sess.accomplishments.length, 0);
+    const lastTime = p.sessions[p.sessions.length - 1]?.time || "";
+    return `
+      <div class="timeline-project">
+        <div class="timeline-project-header" onclick="this.parentElement.querySelector('.timeline-sessions').classList.toggle('collapsed')">
+          <span class="timeline-project-name">${escapeHtml(p.name)}</span>
+          <span class="timeline-project-meta">
+            <span>${p.sessions.length} session${p.sessions.length > 1 ? "s" : ""}</span>
+            <span>${totalAcc} done</span>
+            <span>last: ${lastTime}</span>
+          </span>
+        </div>
+        <div class="timeline-sessions">
+          ${p.sessions.map(s => `
+            <div class="timeline-session">
+              <div class="session-header">
+                <span class="session-time">${s.time || "--"}</span>
+                ${s.branch ? `<span class="session-branch">${escapeHtml(s.branch)}</span>` : ""}
+                ${s.filesChanged ? `<span style="font-size:11px;color:var(--text-dim)">${s.filesChanged} files</span>` : ""}
+              </div>
+              ${s.focus ? `<div class="session-focus">${escapeHtml(s.focus)}</div>` : ""}
+              ${s.accomplishments.length > 0 ? `
+                <ul class="session-accomplishments">
+                  ${s.accomplishments.map(a => `<li>${escapeHtml(a)}</li>`).join("")}
+                </ul>` : ""}
+              ${s.nextSteps.length > 0 ? `
+                <ul class="session-accomplishments session-nextsteps">
+                  ${s.nextSteps.map(n => `<li>${escapeHtml(n)}</li>`).join("")}
+                </ul>` : ""}
+            </div>
+          `).join("")}
+        </div>
+      </div>`;
+  }).join("") + '</div>';
+}
+
 // === Actions ===
 async function triggerAudit() {
   const btn = document.getElementById("btn-audit");
@@ -517,6 +688,7 @@ async function triggerAudit() {
     const data = await res.json();
     render(data);
     toast(`Audit complete: ${data.overall} (${data.issueCount} issues)`, data.overall === "healthy" ? "success" : "info");
+    fetchToday().then(t => { if (t) renderToday(t); });
   } catch (err) {
     toast("Audit failed: " + err.message, "error");
   } finally {
@@ -549,10 +721,17 @@ function escapeHtml(str) {
 }
 
 // Initial load
-fetchStatus().then(data => { if (data) render(data); else document.getElementById("issues-body").innerHTML = '<div class="loading-msg">Server not ready. Retrying...</div>'; });
+Promise.all([fetchStatus(), fetchToday()]).then(([status, today]) => {
+  if (status) render(status); else document.getElementById("issues-body").innerHTML = '<div class="loading-msg">Server not ready. Retrying...</div>';
+  if (today) renderToday(today);
+});
 
 // Auto-refresh every 60s
-setInterval(async () => { const data = await fetchStatus(); if (data) render(data); }, 60000);
+setInterval(async () => {
+  const [status, today] = await Promise.all([fetchStatus(), fetchToday()]);
+  if (status) render(status);
+  if (today) renderToday(today);
+}, 60000);
 </script>
 </body>
 </html>

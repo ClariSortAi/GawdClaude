@@ -410,6 +410,169 @@ function checkObsidianHook() {
 // === MAIN AUDIT ===
 export { userConfig };
 
+// === TODAY: What We Got Done ===
+const VAULT_PROJECTS_DIR = VAULT_ROOT ? join(VAULT_ROOT, obsidianConfig?.subfolder || "Projects") : null;
+
+function parseDiaryEntry(block) {
+  const entry = { time: null, sessionId: null, focus: null, accomplishments: [], nextSteps: [], blockers: [], branch: null, filesChanged: 0 };
+
+  // Header: ## HH:MM:SS — Session `abcd1234`
+  const headerMatch = block.match(/^## (\d{2}:\d{2}:\d{2}) — Session `([^`]+)`/m);
+  if (headerMatch) {
+    entry.time = headerMatch[1];
+    entry.sessionId = headerMatch[2];
+  }
+
+  // Focus
+  const focusMatch = block.match(/\*\*Focus:\*\* (.+)/);
+  if (focusMatch) entry.focus = focusMatch[1];
+
+  // Branch
+  const branchMatch = block.match(/\*\*Branch:\*\* `([^`]+)`/);
+  if (branchMatch) entry.branch = branchMatch[1];
+
+  // Sections with bullet lists
+  const sections = { "### Accomplishments": "accomplishments", "### Next Steps": "nextSteps", "### Blockers": "blockers" };
+  for (const [header, key] of Object.entries(sections)) {
+    const idx = block.indexOf(header);
+    if (idx === -1) continue;
+    const afterHeader = block.slice(idx + header.length);
+    const lines = afterHeader.split("\n");
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (trimmed.startsWith("- ")) {
+        entry[key].push(trimmed.slice(2));
+      } else if (trimmed.startsWith("### ") || trimmed.startsWith("## ") || trimmed === "---") {
+        break;
+      }
+    }
+  }
+
+  // Recently modified files count
+  const recentIdx = block.indexOf("### Recently Modified Files");
+  if (recentIdx !== -1) {
+    const afterRecent = block.slice(recentIdx);
+    const fileLines = afterRecent.split("\n").filter(l => l.trim().startsWith("- `"));
+    entry.filesChanged = fileLines.length;
+  }
+
+  return entry;
+}
+
+function parseDiaryFile(content) {
+  // Split on session headers (## HH:MM:SS)
+  const blocks = [];
+  const lines = content.split("\n");
+  let current = [];
+  let inEntry = false;
+
+  for (const line of lines) {
+    if (/^## \d{2}:\d{2}:\d{2} — Session/.test(line)) {
+      if (inEntry && current.length > 0) {
+        blocks.push(current.join("\n"));
+      }
+      current = [line];
+      inEntry = true;
+    } else if (inEntry) {
+      current.push(line);
+    }
+  }
+  if (inEntry && current.length > 0) {
+    blocks.push(current.join("\n"));
+  }
+
+  return blocks.map(parseDiaryEntry).filter(e => e.time);
+}
+
+export function collectToday(dateStr) {
+  const today = dateStr || new Date().toISOString().slice(0, 10);
+  const result = { date: today, projects: [], totals: { projectsActive: 0, sessionsTotal: 0, accomplishmentsTotal: 0 } };
+
+  const seenSessions = new Set();
+
+  // Source 1: Obsidian vault daily diaries
+  if (VAULT_PROJECTS_DIR && dirExists(VAULT_PROJECTS_DIR)) {
+    const projectDirs = listDirs(VAULT_PROJECTS_DIR);
+    for (const proj of projectDirs) {
+      const diaryPath = join(VAULT_PROJECTS_DIR, proj, `${today}.md`);
+      if (!fileExists(diaryPath)) continue;
+
+      try {
+        const content = readFileSync(diaryPath, "utf-8");
+        const entries = parseDiaryFile(content);
+        if (entries.length === 0) continue;
+
+        // Deduplicate by sessionId — keep the latest entry per session
+        const bySession = new Map();
+        for (const entry of entries) {
+          const key = entry.sessionId || entry.time;
+          bySession.set(key, entry); // later entry overwrites earlier
+        }
+        const dedupedEntries = [...bySession.values()];
+
+        for (const e of dedupedEntries) seenSessions.add(`${proj}:${e.sessionId}`);
+
+        result.projects.push({
+          name: proj,
+          source: "obsidian",
+          sessions: dedupedEntries,
+        });
+      } catch { /* skip unreadable files */ }
+    }
+  }
+
+  // Source 2: Session-state files updated today (fill gaps for projects not in vault)
+  if (dirExists(SESSION_STATE_DIR)) {
+    const files = listFiles(SESSION_STATE_DIR).filter(f => f.endsWith(".json"));
+    for (const f of files) {
+      const fullPath = join(SESSION_STATE_DIR, f);
+      const data = safeReadJSON(fullPath);
+      if (data._error) continue;
+
+      // Check if updated today
+      const updatedAt = data.updatedAt ? data.updatedAt.slice(0, 10) : null;
+      const fileModDate = new Date(statSync(fullPath).mtimeMs).toISOString().slice(0, 10);
+      if (updatedAt !== today && fileModDate !== today) continue;
+
+      const projName = f.replace(".json", "");
+
+      // Skip if we already got this project from obsidian
+      const alreadyCovered = result.projects.some(p => p.name === projName);
+      if (alreadyCovered) continue;
+
+      result.projects.push({
+        name: projName,
+        source: "session-state",
+        sessions: [{
+          time: data.updatedAt ? new Date(data.updatedAt).toTimeString().slice(0, 8) : "unknown",
+          sessionId: null,
+          focus: data.summary || null,
+          accomplishments: data.accomplishments || [],
+          nextSteps: data.nextSteps || [],
+          blockers: data.blockers || [],
+          branch: null,
+          filesChanged: 0,
+        }],
+      });
+    }
+  }
+
+  // Sort projects by most recent session time (descending)
+  result.projects.sort((a, b) => {
+    const aTime = a.sessions[a.sessions.length - 1]?.time || "";
+    const bTime = b.sessions[b.sessions.length - 1]?.time || "";
+    return bTime.localeCompare(aTime);
+  });
+
+  // Totals
+  result.totals.projectsActive = result.projects.length;
+  result.totals.sessionsTotal = result.projects.reduce((sum, p) => sum + p.sessions.length, 0);
+  result.totals.accomplishmentsTotal = result.projects.reduce((sum, p) =>
+    sum + p.sessions.reduce((s2, sess) => s2 + sess.accomplishments.length, 0), 0);
+
+  return result;
+}
+
 export async function runAudit() {
   const timestamp = new Date().toISOString();
   const results = {

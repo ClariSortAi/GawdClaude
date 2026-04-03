@@ -19,7 +19,7 @@ import http from "http";
 import { readFileSync, appendFileSync, mkdirSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
-import { runAudit, writeToObsidian, applyFix, userConfig } from "./audit.mjs";
+import { runAudit, writeToObsidian, applyFix, userConfig, collectToday } from "./audit.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = userConfig.port || 6660;
@@ -106,6 +106,14 @@ async function handleRequest(req, res) {
       writeToObsidian(results);
       log(`Audit complete: ${results.overall} (${results.issueCount} issues)`);
       json(res, 200, results);
+      return;
+    }
+
+    // GET /api/today — What we got done today
+    if (method === "GET" && path === "/api/today") {
+      const dateParam = url.searchParams.get("date") || undefined;
+      const today = collectToday(dateParam);
+      json(res, 200, today);
       return;
     }
 
