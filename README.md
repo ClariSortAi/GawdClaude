@@ -4,7 +4,7 @@ Your Claude Code setup is sprawling. This keeps it honest.
 
 GawdClaude is a meta-management layer that inventories, audits, and monitors every Claude Code configuration across your machine — CLAUDE.md files, hooks, plugins, MCP servers, session states, memory dirs, the lot. It scores your CLAUDE.md files for quality and heals weak ones by spawning headless Claude Code. It runs a nightly health check, writes findings to your Obsidian vault, and serves a local dashboard so you can see what's broken at a glance.
 
-Single project. Zero dependencies. Just Node.js built-ins.
+Single project. Zero npm dependencies. Just Node.js built-ins.
 
 ---
 
@@ -28,6 +28,60 @@ GawdClaude scans everything, flags issues by severity, scores your CLAUDE.md fil
 
 ---
 
+## Prerequisites
+
+| Dependency | Required? | What for |
+|-----------|-----------|----------|
+| **Node.js 18+** | Yes | Runs everything — audit, server, scoring |
+| **Git** | Yes | Cloning this repo, commit-date checks in scoring |
+| **Claude Code CLI** | Yes | This is a management layer *for* Claude Code. The dashboard and audit run without it, but the CLAUDE.md healing loop spawns headless `claude` sessions. Install: `npm install -g @anthropic-ai/claude-code`, then `claude auth login`. |
+| **Obsidian** | No | Enables vault integration for audit reports and the "Today" timeline. |
+
+> On Windows, `setup.ps1` will install Node.js and Git for you via `winget` if they're missing.
+
+## Quick Start (Windows)
+
+One-shot setup — checks dependencies, installs what's missing, configures everything, optionally registers scheduled tasks. **Run from an elevated PowerShell:**
+
+```powershell
+git clone https://github.com/ClariSortAi/GawdClaude.git
+cd GawdClaude
+powershell -ExecutionPolicy Bypass -File setup.ps1
+```
+
+What it does:
+1. Verifies admin privileges
+2. Installs Git and Node.js LTS via `winget` if missing
+3. Runs interactive setup (projects directory, port, Obsidian vault)
+4. Validates your config and runs an initial audit
+5. Asks whether to register Windows Scheduled Tasks
+
+**Dry run** — see exactly what the script would do without changing anything:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File setup.ps1 -DryRun
+```
+
+### Manual Setup (any OS)
+
+```bash
+git clone https://github.com/ClariSortAi/GawdClaude.git
+cd GawdClaude
+node setup.mjs          # interactive config — writes config.json
+node audit.mjs          # one-shot health check
+node server.mjs         # dashboard at http://localhost:6660
+```
+
+No `npm install`. No build step.
+
+### What `setup.mjs` asks
+
+1. **Projects directory** — where your code repos live (e.g. `C:\Dev`, `~/dev`). Must exist or the dashboard shows an empty state with guidance.
+2. **Dashboard port** — defaults to 6660
+3. **Obsidian vault** — auto-detects from `~/.claude/obsidian-hook-config.json`, or asks for a path, or skips
+
+---
+
 ## What It Checks
 
 | Check | What It Does |
@@ -38,63 +92,22 @@ GawdClaude scans everything, flags issues by severity, scores your CLAUDE.md fil
 | Memory dir health | Every memory dir has a MEMORY.md index |
 | Project coverage | CLAUDE.md exists for active projects |
 | Obsidian hook | Config is valid, hook is registered, vault path exists |
-| Watchdog status | Webhook + ngrok PIDs are alive, status file is fresh |
 | MCP configs | All `.mcp.json` files are valid JSON |
 | Orphan detection | Flags configs for deleted projects (and vice versa) |
 | **CLAUDE.md quality** | Scores 0-100 based on content vs project complexity |
 
 ---
 
-## Quick Start
-
-```bash
-git clone https://github.com/ClariSortAi/GawdClaude.git
-cd GawdClaude
-
-# Interactive setup — tells GawdClaude where your projects live
-node setup.mjs
-
-# Run a one-shot audit
-node audit.mjs
-
-# Run audit + write to Obsidian vault
-node audit.mjs --nightly
-
-# Start the dashboard server
-node server.mjs
-# → http://localhost:6660
-```
-
-No `npm install`. No build step. Everything uses Node built-in modules.
-
-### Setup
-
-`node setup.mjs` asks three questions:
-
-1. **Projects directory** — where your code repos live (e.g. `C:\Dev`, `~/dev`)
-2. **Dashboard port** — defaults to 6660
-3. **Obsidian vault** — auto-detects from `~/.claude/obsidian-hook-config.json` if you have one, otherwise asks for a path or skips it
-
-Writes a `config.json` that the audit engine and server read at startup. If you skip setup, everything falls back to sensible defaults (`~/dev` on Linux/macOS, `C:\Dev` on Windows).
-
-### Requirements
-
-- **Node.js 18+** — that's it
-- **Claude Code CLI** — on PATH, authenticated. Required only for the CLAUDE.md healing loop.
-- **Obsidian** — optional. Without it, audit reports go to stdout only.
-
----
-
 ## Dashboard
 
-Light theme with charts and toast notifications. Serves on `localhost:6660`.
+Light/dark theme toggle, charts, and toast notifications. Serves on `localhost:6660`.
 
 **What you see:**
 - Health badge (green/yellow/red) with issue count
-- Status cards: projects, plugins, session states, memory dirs, watchdog
+- Status cards: projects, plugins, session states, memory dirs, issues
 - Charts: project config coverage bar chart, issues-by-severity donut, plugin status donut
-- "Today" timeline: what you got done across all projects, pulled from Obsidian vault diaries and session-state files
-- CLAUDE.md health: score ring per project (0-100), "Heal" button on anything below threshold
+- **Today timeline**: what you got done across all projects, pulled from Obsidian vault diaries and session-state files
+- **CLAUDE.md health**: score ring per project (0-100), one-click "Heal" button on anything below threshold
 - Issues table with severity, source, and description
 - Project grid showing config completeness (CLAUDE.md, memory, session state, MCP)
 
@@ -105,7 +118,6 @@ Light theme with charts and toast notifications. Serves on `localhost:6660`.
 | `GET` | `/` | Dashboard HTML |
 | `GET` | `/api/status` | Latest audit results (JSON) |
 | `GET` | `/api/projects` | Project inventory |
-| `GET` | `/api/watchdog` | Watchdog health |
 | `GET` | `/api/today` | Today's activity across projects |
 | `GET` | `/api/scores` | CLAUDE.md health scores |
 | `POST` | `/api/audit` | Trigger fresh audit |
@@ -129,8 +141,8 @@ The killer feature. Scores every CLAUDE.md for content quality relative to proje
 
 ### Healing (headless Claude Code)
 
-- **Projects without CLAUDE.md**: spawns `claude -p` with a generation prompt that analyzes the codebase and writes a comprehensive file
-- **Projects with weak CLAUDE.md**: spawns `claude -p` with a targeted prompt listing exactly which sections are missing, so Claude knows what to fix
+- **Missing CLAUDE.md**: spawns `claude -p` with a generation prompt that analyzes the codebase and writes a comprehensive file from scratch
+- **Weak CLAUDE.md**: spawns `claude -p` with a targeted prompt listing exactly which sections are missing, so Claude knows what to fix
 - Uses `--model sonnet` for speed, `--dangerously-skip-permissions` for headless operation
 - Runs serially, one project at a time
 
@@ -150,24 +162,21 @@ node improve.mjs --threshold 40
 node improve.mjs --project my-project
 ```
 
-### Dashboard
-
-The CLAUDE.md Health section shows a score ring (0-100) per project. Below-threshold projects get a "Heal" button that spawns headless Claude and shows results via toast notification.
-
 ---
 
 ## Architecture
 
 ```
 GawdClaude/
-├── setup.mjs          # Interactive setup — writes config.json
+├── setup.ps1          # One-shot setup — deps, config, scheduled tasks (Windows, admin)
+├── setup.mjs          # Interactive setup — writes config.json (cross-platform)
 ├── config.json        # User-specific paths and settings (gitignored)
 ├── config.example.json # Sample config for reference
 ├── audit.mjs          # Health check engine — 9 checks, JSON output, Obsidian writer
 ├── improve.mjs        # CLAUDE.md scoring + healing loop
 ├── server.mjs         # HTTP server — dashboard + API
-├── dashboard.html     # Single-file frontend — light theme, charts, timeline, scores
-├── register-task.ps1  # Windows Task Scheduler registration
+├── dashboard.html     # Single-file frontend — light/dark theme, charts, timeline, scores
+├── register-task.ps1  # Windows Task Scheduler registration (requires admin)
 ├── CLAUDE.md          # Project instructions for Claude Code
 └── .remember/         # Session memory (gitignored)
 ```
@@ -182,8 +191,7 @@ The audit engine is the core. Both the server and the nightly cron import it. `r
 ├── plugins/cache/         ← validates enabled plugins have cached data
 ├── hooks/
 │   ├── session-state/     ← staleness + duplicate checks
-│   ├── obsidian-journal.mjs  ← verifies hook is registered + functional
-│   └── watchdog-status.json  ← PID liveness + freshness
+│   └── obsidian-journal.mjs  ← verifies hook is registered + functional
 ├── projects/*/memory/     ← MEMORY.md index presence
 └── obsidian-hook-config.json  ← vault path validation
 
@@ -204,8 +212,10 @@ Writes to:
 
 ### Register the tasks
 
+If you chose not to register tasks during `setup.ps1`, you can do it later:
+
 ```powershell
-# Requires admin — run from the GawdClaude directory
+# Requires admin — run from an elevated PowerShell in the GawdClaude directory
 powershell -ExecutionPolicy Bypass -File register-task.ps1
 ```
 
@@ -230,13 +240,13 @@ Vault structure:
 └── YYYY-MM-DD.md     # Daily diary entries (from obsidian-journal.mjs hook)
 ```
 
-The "Today" dashboard section reads daily diary files from all project folders in the vault to build a cross-project activity timeline.
+The "Today" dashboard section reads daily diary files from all project folders in the vault to build a cross-project activity timeline. If you don't use Obsidian, the dashboard shows setup instructions in the Today section.
 
 ---
 
 ## Configuration
 
-Run `node setup.mjs` to generate a `config.json`:
+Run `node setup.mjs` (or let `setup.ps1` run it for you) to generate `config.json`:
 
 ```json
 {
@@ -253,18 +263,10 @@ Run `node setup.mjs` to generate a `config.json`:
 |-----|------|---------|
 | `devDir` | Root directory containing your project repos | `C:\Dev` (Windows), `~/dev` (macOS/Linux) |
 | `port` | Dashboard server port | `6660` |
-| `obsidian.vaultRoot` | Obsidian vault path | Auto-detected from `~/.claude/obsidian-hook-config.json` |
+| `obsidian.vaultRoot` | Obsidian vault path | Auto-detected or asked during setup |
 | `obsidian.subfolder` | Vault subfolder for project notes | `Projects` |
 
 If `config.json` doesn't exist, the audit engine falls back to defaults. The `~/.claude/` path is always derived from your home directory — that's not configurable because it's where Claude Code lives.
-
----
-
-## Current Status
-
-Running nightly. Dashboard serves real data with working action buttons. CLAUDE.md healing loop tested across 66 projects — generation creates project-specific content, targeted improvement prompts fill specific gaps.
-
-This exists because I run 30+ Claude Code projects and needed a way to know when things break without discovering it mid-session.
 
 ---
 

@@ -3,25 +3,31 @@
 This project is the control plane for all Claude Code configurations on the host machine.
 
 ## Role
-God Claude: inventory, audit, score, and heal every Claude Code config file at both the user level (`~/.claude/`) and project level. This includes CLAUDE.md files, hooks, plugins, MCP configs, session-state files, memory dirs, and Obsidian vault integration.
+Gawd Claude: inventory, audit, score, and heal every Claude Code config file at both the user level (`~/.claude/`) and project level. This includes CLAUDE.md files, hooks, plugins, MCP configs, session-state files, memory dirs, and Obsidian vault integration.
 
 ## Project Structure
 ```
 GawdClaude/
+├── setup.ps1          # One-shot setup — deps, config, scheduled tasks (Windows, admin)
 ├── setup.mjs          # Interactive setup — writes config.json
 ├── config.json        # User paths: devDir, port, obsidian vault (gitignored)
 ├── audit.mjs          # Health check engine — 9 checks, JSON output, Obsidian writer
 ├── improve.mjs        # CLAUDE.md scoring + healing loop (spawns headless Claude)
 ├── server.mjs         # HTTP server — dashboard + API on port 6660
-├── dashboard.html     # Single-file frontend — light theme, charts, timeline
-├── register-task.ps1  # Windows Task Scheduler for nightly + server at logon
+├── dashboard.html     # Single-file frontend — light/dark theme, charts, timeline
+├── register-task.ps1  # Windows Task Scheduler for nightly + server at logon (admin)
 ├── config.example.json # Sample config for new users
 ├── CLAUDE.md          # This file
 └── .remember/         # Session logs (gitignored)
 ```
 
 ## How to Run
+```powershell
+# One-shot setup (Windows, elevated PowerShell) — installs deps, configures, schedules
+powershell -ExecutionPolicy Bypass -File setup.ps1
+```
 ```bash
+# Or manual setup (any OS)
 node setup.mjs                 # First-time setup (writes config.json)
 node audit.mjs                 # One-shot health check (JSON to stdout)
 node audit.mjs --nightly       # Health check + write to Obsidian vault
