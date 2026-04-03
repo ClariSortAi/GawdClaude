@@ -2,7 +2,7 @@
 
 Your Claude Code setup is sprawling. This keeps it honest.
 
-GawdClaude is a meta-management layer that inventories, audits, and monitors every Claude Code configuration across your machine — CLAUDE.md files, hooks, plugins, MCP servers, session states, memory dirs, the lot. It runs a nightly health check, writes findings to your Obsidian vault, and serves a local dashboard so you can see what's broken at a glance.
+GawdClaude is a meta-management layer that inventories, audits, and monitors every Claude Code configuration across your machine — CLAUDE.md files, hooks, plugins, MCP servers, session states, memory dirs, the lot. It scores your CLAUDE.md files for quality and heals weak ones by spawning headless Claude Code. It runs a nightly health check, writes findings to your Obsidian vault, and serves a local dashboard so you can see what's broken at a glance.
 
 Single project. Zero dependencies. Just Node.js built-ins.
 
@@ -10,11 +10,13 @@ Single project. Zero dependencies. Just Node.js built-ins.
 
 ## The Problem
 
-Claude Code drops config files everywhere. Every project gets its own CLAUDE.md, maybe a `.mcp.json`, maybe a memory directory, session state files, plugin caches. You work across 30+ projects and things drift:
+Claude Code drops config files everywhere. Every project gets its own CLAUDE.md, maybe a `.mcp.json`, maybe a memory directory, session state files, plugin caches. You work across dozens of projects and things drift:
 
 - Session states go stale and nobody notices
 - Memory directories exist but have no index
 - Plugins are enabled but their cache is missing
+- CLAUDE.md files are thin stubs that don't help Claude understand your project
+- Projects that need a CLAUDE.md don't have one at all
 - Obsidian journal hooks silently fail because a path changed
 - CLAUDE.md files exist for projects that were deleted months ago
 
@@ -22,7 +24,7 @@ There's no single view of what's configured, what's healthy, and what's rotting.
 
 ## The Solution
 
-GawdClaude scans everything, flags issues by severity, and gives you a dashboard with fix buttons. It also runs at 2 AM so you wake up to a report instead of discovering problems mid-session.
+GawdClaude scans everything, flags issues by severity, scores your CLAUDE.md files for content quality, and heals the weak ones autonomously. It also runs at 2 AM so you wake up to a report instead of discovering problems mid-session.
 
 ---
 
@@ -39,6 +41,7 @@ GawdClaude scans everything, flags issues by severity, and gives you a dashboard
 | Watchdog status | Webhook + ngrok PIDs are alive, status file is fresh |
 | MCP configs | All `.mcp.json` files are valid JSON |
 | Orphan detection | Flags configs for deleted projects (and vice versa) |
+| **CLAUDE.md quality** | Scores 0-100 based on content vs project complexity |
 
 ---
 
@@ -74,18 +77,26 @@ No `npm install`. No build step. Everything uses Node built-in modules.
 
 Writes a `config.json` that the audit engine and server read at startup. If you skip setup, everything falls back to sensible defaults (`~/dev` on Linux/macOS, `C:\Dev` on Windows).
 
+### Requirements
+
+- **Node.js 18+** — that's it
+- **Claude Code CLI** — on PATH, authenticated. Required only for the CLAUDE.md healing loop.
+- **Obsidian** — optional. Without it, audit reports go to stdout only.
+
 ---
 
 ## Dashboard
 
-Dark theme, monospace, terminal aesthetic. Serves on `localhost:6660`.
+Light theme with charts and toast notifications. Serves on `localhost:6660`.
 
 **What you see:**
 - Health badge (green/yellow/red) with issue count
 - Status cards: projects, plugins, session states, memory dirs, watchdog
+- Charts: project config coverage bar chart, issues-by-severity donut, plugin status donut
+- "Today" timeline: what you got done across all projects, pulled from Obsidian vault diaries and session-state files
+- CLAUDE.md health: score ring per project (0-100), "Heal" button on anything below threshold
 - Issues table with severity, source, and description
-- Project grid showing config completeness per project (CLAUDE.md, memory, session state, MCP)
-- Action buttons: run audit, refresh stale states, fix missing indexes, open in Obsidian
+- Project grid showing config completeness (CLAUDE.md, memory, session state, MCP)
 
 **API endpoints:**
 
@@ -95,10 +106,53 @@ Dark theme, monospace, terminal aesthetic. Serves on `localhost:6660`.
 | `GET` | `/api/status` | Latest audit results (JSON) |
 | `GET` | `/api/projects` | Project inventory |
 | `GET` | `/api/watchdog` | Watchdog health |
+| `GET` | `/api/today` | Today's activity across projects |
+| `GET` | `/api/scores` | CLAUDE.md health scores |
 | `POST` | `/api/audit` | Trigger fresh audit |
+| `POST` | `/api/heal/:project` | Heal a single project's CLAUDE.md |
 | `POST` | `/api/fix/:id` | Apply a known fix |
 
 Available fixes: `stale-session-states`, `empty-memory-index`.
+
+---
+
+## CLAUDE.md Healing Loop
+
+The killer feature. Scores every CLAUDE.md for content quality relative to project complexity, then heals below-threshold projects by spawning headless Claude Code.
+
+### Scoring (heuristic, instant, free)
+
+- Detects stack from `package.json`, `pyproject.toml`, `go.mod`, etc.
+- Counts files to determine complexity tier: simple (< 10), medium (10-50), complex (50+)
+- Scores 0-100 based on: section presence (structure, conventions, how-to-run), length relative to complexity, stack mention, freshness vs last commit
+- No API calls, no tokens — pure filesystem heuristics
+
+### Healing (headless Claude Code)
+
+- **Projects without CLAUDE.md**: spawns `claude -p` with a generation prompt that analyzes the codebase and writes a comprehensive file
+- **Projects with weak CLAUDE.md**: spawns `claude -p` with a targeted prompt listing exactly which sections are missing, so Claude knows what to fix
+- Uses `--model sonnet` for speed, `--dangerously-skip-permissions` for headless operation
+- Runs serially, one project at a time
+
+### CLI
+
+```bash
+# Score all projects, print table
+node improve.mjs --score-only
+
+# Score + heal everything below threshold (default 60)
+node improve.mjs
+
+# Custom threshold
+node improve.mjs --threshold 40
+
+# Single project
+node improve.mjs --project my-project
+```
+
+### Dashboard
+
+The CLAUDE.md Health section shows a score ring (0-100) per project. Below-threshold projects get a "Heal" button that spawns headless Claude and shows results via toast notification.
 
 ---
 
@@ -108,15 +162,17 @@ Available fixes: `stale-session-states`, `empty-memory-index`.
 GawdClaude/
 ├── setup.mjs          # Interactive setup — writes config.json
 ├── config.json        # User-specific paths and settings (gitignored)
+├── config.example.json # Sample config for reference
 ├── audit.mjs          # Health check engine — 9 checks, JSON output, Obsidian writer
-├── server.mjs         # HTTP server — dashboard + API on port 6660
-├── dashboard.html     # Single-file frontend — light theme, charts, toast notifications
+├── improve.mjs        # CLAUDE.md scoring + healing loop
+├── server.mjs         # HTTP server — dashboard + API
+├── dashboard.html     # Single-file frontend — light theme, charts, timeline, scores
 ├── register-task.ps1  # Windows Task Scheduler registration
-├── CLAUDE.md          # Meta-management role definition
-└── .remember/         # Session memory (logs, tmp)
+├── CLAUDE.md          # Project instructions for Claude Code
+└── .remember/         # Session memory (gitignored)
 ```
 
-The audit engine is the core. Both the server and the nightly cron import it. `runAudit()` returns a structured JSON object; `writeToObsidian()` converts that to Markdown and writes it to the vault.
+The audit engine is the core. Both the server and the nightly cron import it. `runAudit()` returns a structured JSON object; `writeToObsidian()` converts that to Markdown and writes it to the vault. `improve.mjs` handles scoring and healing independently.
 
 ### What it scans
 
@@ -131,16 +187,16 @@ The audit engine is the core. Both the server and the nightly cron import it. `r
 ├── projects/*/memory/     ← MEMORY.md index presence
 └── obsidian-hook-config.json  ← vault path validation
 
-C:\Dev\*/
-├── CLAUDE.md              ← cross-references with project configs
+{devDir}/*/
+├── CLAUDE.md              ← cross-references with project configs, scored for quality
 └── .mcp.json              ← JSON validity check
 ```
 
 ---
 
-## Nightly Audit
+## Nightly Automation (Windows)
 
-Registered as a Windows Scheduled Task. Runs `node audit.mjs --nightly` at 2:00 AM.
+Registered as Windows Scheduled Tasks. Runs `node audit.mjs --nightly` at 2:00 AM.
 
 Writes to:
 - `{vault}/Projects/gawdclaude/_audit.md` — full report (overwritten each run)
@@ -149,7 +205,7 @@ Writes to:
 ### Register the tasks
 
 ```powershell
-# Requires admin
+# Requires admin — run from the GawdClaude directory
 powershell -ExecutionPolicy Bypass -File register-task.ps1
 ```
 
@@ -157,30 +213,24 @@ This creates two scheduled tasks:
 1. **GawdClaude-Nightly** — daily at 2:00 AM, runs the audit and writes to Obsidian
 2. **GawdClaude-Server** — at logon, starts the dashboard server with auto-restart
 
-Both use `StartWhenAvailable` and `RestartOnFailure` — same pattern as other watchdog tasks on the machine.
+Both use `StartWhenAvailable` and `RestartOnFailure`. The script uses `$PSScriptRoot` to resolve paths — works from any install location.
 
 ---
 
 ## Obsidian Integration
 
-GawdClaude writes to your Obsidian vault alongside the existing journal hook. It reads the vault path from `~/.claude/obsidian-hook-config.json`:
-
-```json
-{
-  "vaultRoot": "C:/Users/jason/Documents/Obsidian Vault",
-  "subfolder": "Projects",
-  "enableStatusFile": true
-}
-```
+Optional. GawdClaude writes to your Obsidian vault if configured. It reads the vault path from `config.json` (set during `node setup.mjs`) or falls back to `~/.claude/obsidian-hook-config.json`.
 
 Vault structure:
 
 ```
-Obsidian Vault/Projects/gawdclaude/
+{vault}/Projects/gawdclaude/
 ├── _audit.md         # Latest audit report (auto-overwritten)
-├── _nightly-log.md   # Append-only history of every nightly run
-└── 2026-04-03.md     # Daily diary entries (from obsidian-journal.mjs hook)
+├── _nightly-log.md   # Append-only history of every run + healing results
+└── YYYY-MM-DD.md     # Daily diary entries (from obsidian-journal.mjs hook)
 ```
+
+The "Today" dashboard section reads daily diary files from all project folders in the vault to build a cross-project activity timeline.
 
 ---
 
@@ -212,7 +262,7 @@ If `config.json` doesn't exist, the audit engine falls back to defaults. The `~/
 
 ## Current Status
 
-Working. Running nightly on my machine. The dashboard is ugly-functional — it shows real data and the action buttons work. Not designed for anyone else's machine without editing the paths.
+Running nightly. Dashboard serves real data with working action buttons. CLAUDE.md healing loop tested across 66 projects — generation creates project-specific content, targeted improvement prompts fill specific gaps.
 
 This exists because I run 30+ Claude Code projects and needed a way to know when things break without discovering it mid-session.
 

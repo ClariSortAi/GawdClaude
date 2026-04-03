@@ -1,27 +1,9 @@
 # GawdClaude — Meta-Management Hub
 
-This project is the control plane for all Claude Code configurations across Jason's system.
+This project is the control plane for all Claude Code configurations on the host machine.
 
 ## Role
-God Claude: inventory, audit, and optimize every Claude Code config file at both the user level (`~/.claude/`) and project level (`C:\Dev\*`). This includes CLAUDE.md files, hooks, plugins, MCP configs, session-state files, memory dirs, and Obsidian vault integration.
-
-## What This Project Manages
-- **30 project configs** in `~/.claude/projects/`
-- **21 project CLAUDE.md files** across `C:\Dev\`
-- **12 memory directories** with persistent cross-session knowledge
-- **7 session-state files** feeding the Obsidian journal hook
-- **6 MCP configurations** for project-specific tool servers
-- **25 enabled plugins** (8 disabled)
-- **1 global Stop hook** writing to Obsidian vault
-
-## Key Paths
-- Global config: `C:\Users\jason\.claude\CLAUDE.md`
-- Global settings: `C:\Users\jason\.claude\settings.json`
-- Obsidian hook: `C:\Users\jason\.claude\hooks\obsidian-journal.mjs`
-- Obsidian config: `C:\Users\jason\.claude\obsidian-hook-config.json`
-- Obsidian vault: `C:\Users\jason\Documents\Obsidian Vault\Projects\`
-- Session states: `C:\Users\jason\.claude\hooks\session-state\`
-- Plugin cache: `C:\Users\jason\.claude\plugins\cache\`
+God Claude: inventory, audit, score, and heal every Claude Code config file at both the user level (`~/.claude/`) and project level. This includes CLAUDE.md files, hooks, plugins, MCP configs, session-state files, memory dirs, and Obsidian vault integration.
 
 ## Project Structure
 ```
@@ -33,20 +15,27 @@ GawdClaude/
 ├── server.mjs         # HTTP server — dashboard + API on port 6660
 ├── dashboard.html     # Single-file frontend — light theme, charts, timeline
 ├── register-task.ps1  # Windows Task Scheduler for nightly + server at logon
+├── config.example.json # Sample config for new users
 ├── CLAUDE.md          # This file
-└── .remember/         # Session logs
+└── .remember/         # Session logs (gitignored)
 ```
 
 ## How to Run
 ```bash
-node setup.mjs              # First-time setup (writes config.json)
-node audit.mjs              # One-shot health check (JSON to stdout)
-node audit.mjs --nightly    # Health check + write to Obsidian vault
-node server.mjs             # Dashboard at http://localhost:6660
+node setup.mjs                 # First-time setup (writes config.json)
+node audit.mjs                 # One-shot health check (JSON to stdout)
+node audit.mjs --nightly       # Health check + write to Obsidian vault
+node server.mjs                # Dashboard at http://localhost:6660
 node improve.mjs --score-only  # Score all CLAUDE.md files
-node improve.mjs            # Score + heal below threshold
+node improve.mjs               # Score + heal below threshold
 node improve.mjs --project X   # Score + heal one project
 ```
+
+## Key Paths (derived at runtime)
+- Claude config: `~/.claude/` (from `os.homedir()`)
+- Projects dir: from `config.json` → `devDir`
+- Obsidian vault: from `config.json` → `obsidian.vaultRoot`
+- All paths are configurable via `node setup.mjs` — nothing is hardcoded to a specific machine
 
 ## Audit Checklist
 When running a health check:
@@ -58,10 +47,16 @@ When running a health check:
 6. Verify .mcp.json files are valid JSON
 7. Cross-reference project configs with actual project directories
 8. Flag orphaned configs (project deleted but config remains)
-9. Report findings to Obsidian vault at `Projects/gawdclaude/_audit.md`
+
+## CLAUDE.md Healing Loop
+- `improve.mjs` scores every project's CLAUDE.md 0-100 based on section coverage, complexity match, freshness
+- Projects below threshold (default 60) are healed by spawning headless `claude -p` with targeted prompts
+- Missing files: generates from scratch via codebase analysis
+- Weak files: sends specific findings (missing sections) so Claude knows what to fix
+- Runs serially to avoid hammering the API
 
 ## Conventions
 - Audit reports go to Obsidian vault, not this repo
-- Session-state for this project: `~/.claude/hooks/session-state/gawdclaude.json`
-- Never modify other projects' code — only their Claude configs
-- Always ask before disabling plugins or deleting configs
+- Never modify other projects' source code — only their Claude configs
+- `config.json` is gitignored — user-specific paths stay local
+- Zero npm dependencies — everything uses Node built-in modules

@@ -832,8 +832,16 @@ async function triggerFix(fixId) {
   }
 }
 
-function openObsidian() {
-  window.location.href = "obsidian://open?vault=Obsidian%20Vault&file=Projects%2Fgawdclaude%2F_audit";
+async function openObsidian() {
+  try {
+    const res = await fetch(`${API}/api/config`);
+    const cfg = await res.json();
+    if (cfg.obsidianVault) {
+      window.location.href = `obsidian://open?vault=${encodeURIComponent(cfg.obsidianVault)}&file=Projects%2Fgawdclaude%2F_audit`;
+    } else {
+      toast("No Obsidian vault configured. Run node setup.mjs to set one.", "error");
+    }
+  } catch { toast("Failed to read config", "error"); }
 }
 
 function escapeHtml(str) {

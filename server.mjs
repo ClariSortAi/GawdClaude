@@ -17,7 +17,7 @@
 
 import http from "http";
 import { readFileSync, appendFileSync, mkdirSync } from "fs";
-import { join, dirname } from "path";
+import { join, dirname, basename } from "path";
 import { fileURLToPath } from "url";
 import { runAudit, writeToObsidian, applyFix, userConfig, collectToday } from "./audit.mjs";
 import { scoreAll, healProject, scoreProject } from "./improve.mjs";
@@ -141,6 +141,14 @@ async function handleRequest(req, res) {
       const result = healProject(project);
       log(`Heal result: ${projectName} ${result.success ? result.oldScore + "→" + result.newScore : "FAILED"}`);
       json(res, 200, result);
+      return;
+    }
+
+    // GET /api/config — Non-sensitive config for dashboard
+    if (method === "GET" && path === "/api/config") {
+      json(res, 200, {
+        obsidianVault: userConfig.obsidian?.vaultRoot ? basename(userConfig.obsidian.vaultRoot) : null,
+      });
       return;
     }
 

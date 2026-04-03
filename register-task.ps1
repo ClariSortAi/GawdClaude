@@ -2,12 +2,13 @@
 # Run: powershell -ExecutionPolicy Bypass -File register-task.ps1
 
 $nodePath = (Get-Command node).Source
+$projectDir = $PSScriptRoot
 
 # --- Task 1: Nightly Audit at 2:00 AM ---
 $nightlyAction = New-ScheduledTaskAction `
   -Execute $nodePath `
-  -Argument '"C:\Dev\GawdClaude\audit.mjs" --nightly' `
-  -WorkingDirectory "C:\Dev\GawdClaude"
+  -Argument "`"$projectDir\audit.mjs`" --nightly" `
+  -WorkingDirectory $projectDir
 
 $nightlyTrigger = New-ScheduledTaskTrigger -Daily -At "2:00AM"
 
@@ -30,8 +31,8 @@ Write-Host "Registered: GawdClaude-Nightly (daily at 2:00 AM)" -ForegroundColor 
 # --- Task 2: Dashboard Server at Logon ---
 $serverAction = New-ScheduledTaskAction `
   -Execute $nodePath `
-  -Argument '"C:\Dev\GawdClaude\server.mjs"' `
-  -WorkingDirectory "C:\Dev\GawdClaude"
+  -Argument "`"$projectDir\server.mjs`"" `
+  -WorkingDirectory $projectDir
 
 $serverTrigger = New-ScheduledTaskTrigger -AtLogOn
 
@@ -54,4 +55,4 @@ Register-ScheduledTask `
 Write-Host "Registered: GawdClaude-Server (at logon, auto-restart)" -ForegroundColor Green
 Write-Host ""
 Write-Host "Dashboard will be at: http://localhost:6660" -ForegroundColor Cyan
-Write-Host "To start now: node C:\Dev\GawdClaude\server.mjs" -ForegroundColor Cyan
+Write-Host "To start now: node $projectDir\server.mjs" -ForegroundColor Cyan
