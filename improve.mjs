@@ -96,6 +96,22 @@ function countFiles(dir, depth = 0, max = 200) {
   return count;
 }
 
+// If the root dir has no project markers, check one level deep for nested projects
+// Handles patterns like VMi2_o/VMi2_o/ or myapp/src/
+function findProjectRoot(dir) {
+  const markers = ["package.json", "pyproject.toml", "go.mod", "Cargo.toml", "CLAUDE.md"];
+  if (markers.some(m => fileExists(join(dir, m)))) return dir;
+  try {
+    const subdirs = readdirSync(dir, { withFileTypes: true })
+      .filter(d => d.isDirectory() && !d.name.startsWith(".") && !IGNORE_DIRS.has(d.name));
+    for (const sub of subdirs) {
+      const subPath = join(dir, sub.name);
+      if (markers.some(m => fileExists(join(subPath, m)))) return subPath;
+    }
+  } catch {}
+  return dir;
+}
+
 function detectStack(projectDir) {
   const indicators = [];
 
@@ -216,13 +232,19 @@ export function scoreProject(projectDir) {
   const name = basename(projectDir);
   const fileCount = countFiles(projectDir);
   const complexity = fileCount < 10 ? "simple" : fileCount < 50 ? "medium" : "complex";
-  const stack = detectStack(projectDir);
+  const effectiveRoot = findProjectRoot(projectDir);
+  const stack = detectStack(effectiveRoot);
   const lastCommit = getLastCommitDate(projectDir);
-  const claudeMdDate = getClaudeMdAge(projectDir);
+  const claudeMdDate = getClaudeMdAge(effectiveRoot);
 
-  const claudeMdPath = join(projectDir, "CLAUDE.md");
+  // Check for CLAUDE.md at project root first, then effective root (nested project)
+  let claudeMdPath = join(projectDir, "CLAUDE.md");
   let content = null;
   try { content = readFileSync(claudeMdPath, "utf-8"); } catch {}
+  if (!content && effectiveRoot !== projectDir) {
+    claudeMdPath = join(effectiveRoot, "CLAUDE.md");
+    try { content = readFileSync(claudeMdPath, "utf-8"); } catch {}
+  }
 
   const { score, findings, sections } = scoreClaudeMd(content, complexity, stack);
 
@@ -241,6 +263,7 @@ export function scoreProject(projectDir) {
   return {
     name,
     path: projectDir,
+    effectiveRoot: effectiveRoot !== projectDir ? effectiveRoot : undefined,
     hasClaudeMd: !!content,
     claudeMdLines: content ? content.split("\n").length : 0,
     fileCount,
@@ -273,7 +296,8 @@ export function scoreAll() {
 // === HEALING ===
 
 export function healProject(projectResult) {
-  const { name, path: projectDir, hasClaudeMd, score, findings, sections, complexity, stack } = projectResult;
+  const { name, path: projectDir, effectiveRoot, hasClaudeMd, score, findings, sections, complexity, stack } = projectResult;
+  const healDir = effectiveRoot || projectDir;
   const startTime = Date.now();
 
   let action, prompt;
@@ -308,7 +332,7 @@ export function healProject(projectResult) {
     const escapedPrompt = prompt.replace(/"/g, '\\"');
     const cmd = `"${CLAUDE_BIN}" -p "${escapedPrompt}" --dangerously-skip-permissions --model sonnet`;
     const result = execSync(cmd, {
-      cwd: projectDir,
+      cwd: healDir,
       encoding: "utf-8",
       timeout: 120000, // 2 min max per project
       stdio: ["pipe", "pipe", "pipe"],
