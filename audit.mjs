@@ -745,10 +745,21 @@ export function writeToObsidian(results) {
   }
 
   const badge = results.overall === "healthy" ? "HEALTHY" : results.overall === "warning" ? "WARNING" : "CRITICAL";
-  const entry = `## ${date} ${time} — ${badge} (${results.issueCount} issues)\n\n` +
+  let entry = `## ${date} ${time} — ${badge} (${results.issueCount} issues)\n\n` +
     results.issues.map(i => `- [${i.severity}] ${i.source}: ${i.message}`).join("\n") +
     (results.issues.length === 0 ? "- No issues found" : "") +
-    "\n\n---\n\n";
+    "\n";
+
+  // Append CLAUDE.md health summary if available
+  if (results.claudeMdHealth) {
+    const h = results.claudeMdHealth;
+    entry += `\n**CLAUDE.md Health:** ${h.healthy}/${h.total} healthy (avg ${h.avgScore}), ${h.belowThreshold} need work\n`;
+    if (h.worst.length > 0) {
+      entry += "Worst: " + h.worst.map(w => `${w.name} (${w.score})`).join(", ") + "\n";
+    }
+  }
+
+  entry += "\n---\n\n";
 
   appendFileSync(logPath, entry, "utf-8");
   return true;
@@ -803,7 +814,25 @@ const isMain = process.argv[1]?.replace(/\\/g, "/").endsWith("audit.mjs");
 if (isMain) {
   const nightly = process.argv.includes("--nightly");
 
-  runAudit().then(results => {
+  runAudit().then(async results => {
+    // Run CLAUDE.md scoring alongside the audit (analysis only, no healing)
+    let scores = null;
+    try {
+      const { scoreAll } = await import("./improve.mjs");
+      scores = scoreAll();
+      const below = scores.filter(s => s.score < 60 && s.fileCount > 0);
+      results.claudeMdHealth = {
+        total: scores.length,
+        healthy: scores.filter(s => s.score >= 60).length,
+        belowThreshold: below.length,
+        avgScore: Math.round(scores.reduce((sum, s) => sum + s.score, 0) / scores.length),
+        worst: below.slice(0, 5).map(s => ({ name: s.name, score: s.score, findings: s.findings })),
+      };
+      console.error(`[scoring] ${scores.length} projects scored, ${below.length} below threshold`);
+    } catch (err) {
+      console.error(`[scoring] Failed: ${err.message}`);
+    }
+
     console.log(JSON.stringify(results, null, 2));
 
     if (nightly) {
